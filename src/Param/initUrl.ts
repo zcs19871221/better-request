@@ -1,4 +1,4 @@
-import { parse, stringify } from './queryString';
+import { parse, stringify, merge } from './queryString';
 
 export default function(
   url: InputURL,
@@ -11,16 +11,18 @@ export default function(
     url = new URL(url.toString());
   }
   path = path.trim();
-  if (typeof search === 'string') {
-    search = search.trim().replace(/^\?/u, '');
-  } else {
-    search = stringify(search);
-  }
   if (search) {
-    url.search = stringify({
-      ...parse(url.search.replace(/^\?/u, '')),
-      ...parse(search.replace(/^\?/u, '')),
-    });
+    let inputSearch = {};
+    if (typeof search === 'string') {
+      inputSearch = parse(search);
+    } else {
+      inputSearch = search;
+    }
+    url.search = stringify(
+      Object.entries(inputSearch).reduce((acc, [key, value]) => {
+        return merge(acc, key, value);
+      }, parse(url.search)),
+    );
   }
   if (path) {
     url.pathname = path;

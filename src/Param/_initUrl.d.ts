@@ -1,2 +1,3 @@
 declare type InputURL = URL | string;
-declare type InputSearch = string | { [key: string]: string };
+type value = string | number;
+declare type InputSearch = string | { [key: string]: value | value[] };

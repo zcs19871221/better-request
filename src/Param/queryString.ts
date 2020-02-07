@@ -1,6 +1,16 @@
 import { notEmptyStr, isArray, notEmptyObject } from 'better-utils';
 
-const parse = (str: any) => {
+const merge = (object: { [prop: string]: any }, key: any, value: any) => {
+  if (object[key] === undefined) {
+    object[key] = value;
+  } else if (isArray(object[key])) {
+    object[key] = [...new Set(object[key].concat(value))];
+  } else if (object[key] !== value) {
+    object[key] = [object[key], value];
+  }
+  return object;
+};
+const parse = (str: any): object => {
   if (notEmptyStr(str)) {
     return str
       .trim()
@@ -9,14 +19,7 @@ const parse = (str: any) => {
       .reduce((acc: { [index: string]: any }, each: any) => {
         const [key, value = ''] = each.split('=');
         const decoded = decodeURIComponent(value);
-        if (acc[key] === undefined) {
-          acc[key] = decoded;
-        } else if (isArray(acc[key])) {
-          acc[key].push(decoded);
-        } else {
-          acc[key] = [acc[key], decoded];
-        }
-        return acc;
+        return merge(acc, key, decoded);
       }, {});
   }
   return {};
@@ -43,4 +46,4 @@ const stringify = (obj: object) => {
   return '';
 };
 
-export { stringify, parse };
+export { stringify, parse, merge };
