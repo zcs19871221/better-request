@@ -1,5 +1,5 @@
 import Param from '../Param';
-import Header from '../Param/Header';
+import Header, { InputHeader } from '../Param/Header';
 
 enum statusEnum {
   NOTSEND,
@@ -9,24 +9,27 @@ enum statusEnum {
   TIMEOUT,
   ERROR,
 }
-type STATUS = keyof typeof statusEnum;
 
-const order = [
-  // 未发送
-  [statusEnum.NOTSEND],
-  // 发送中
-  [statusEnum.SENDING],
-  // 发送结束
-  [
-    statusEnum.ABORTED,
-    statusEnum.TIMEOUT,
-    statusEnum.ERROR,
-    statusEnum.SUCCESS,
-  ],
-];
+interface FetcherInterface {
+  statusCode: number;
+  resHeader: Header;
+  param: Param;
+  abort(): this;
+  isAborted(): boolean;
+  isTimeout(): boolean;
+  isError(): boolean;
+  isSuccess(): boolean;
+  is2xx(): boolean;
+  is3xx(): boolean;
+  is4xx(): boolean;
+  is5xx(): boolean;
+  send(body?: any): any;
+  getResHeader(key?: string | string[]): InputHeader | string | string[];
+}
 
+export { FetcherInterface };
 export default abstract class Fetcher<T> implements FetcherInterface {
-  protected status: STATUS;
+  protected status: keyof typeof statusEnum;
   protected thread: Promise<any>;
   protected resolve: Function = () => {};
   protected reject: Function = () => {};
@@ -48,6 +51,20 @@ export default abstract class Fetcher<T> implements FetcherInterface {
       };
     });
   }
+
+  static order = [
+    // 未发送
+    [statusEnum.NOTSEND],
+    // 发送中
+    [statusEnum.SENDING],
+    // 发送结束
+    [
+      statusEnum.ABORTED,
+      statusEnum.TIMEOUT,
+      statusEnum.ERROR,
+      statusEnum.SUCCESS,
+    ],
+  ];
 
   abort(): this {
     if (this._next('ABORTED')) {
@@ -88,16 +105,26 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return this._codeEqual(5);
   }
 
-  send(body: T | null = null): Promise<any> {
+  send(body: T | null = null, overWriteHeader: InputHeader = {}): Promise<any> {
     this._prepareSend();
-    if (body === null && this.param.getBody() !== null) {
-      body = this.param.getBody();
-    }
-    this._send(body);
+    this._send(body, overWriteHeader);
     return this.thread;
   }
 
-  abstract _send(body: T | null): this;
+  getResHeader(): InputHeader;
+  getResHeader(key: string): string;
+  getResHeader(key: string[]): string[];
+  getResHeader(key?: string | string[]): InputHeader | string | string[] {
+    if (key === undefined) {
+      return this.resHeader.getAll();
+    }
+    if (typeof key === 'string') {
+      return this.resHeader.get(key);
+    }
+    return this.resHeader.gets(key);
+  }
+
+  abstract _send(body: T | null, overWriteHeader: InputHeader): this;
   abstract _abort(): this;
   abstract _setResHeader(res: any): this;
   abstract _setStatusCode(res: any): this;
@@ -125,11 +152,13 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return false;
   }
 
-  _next(status: STATUS): boolean {
-    const src = order.findIndex(config =>
+  _next(status: keyof typeof statusEnum): boolean {
+    const src = Fetcher.order.findIndex(config =>
       config.includes(statusEnum[this.status]),
     );
-    const dest = order.findIndex(config => config.includes(statusEnum[status]));
+    const dest = Fetcher.order.findIndex(config =>
+      config.includes(statusEnum[status]),
+    );
     if (src === -1 || dest === -1) {
       throw new Error('状态码错误');
     }

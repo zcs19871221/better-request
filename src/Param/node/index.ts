@@ -1,10 +1,14 @@
-import Param from '..';
-import initAgent, { getClient } from './initAgent';
-import initBody from './initBody';
+import http from 'http';
+import https from 'https';
+import Param, { ParamOpt } from '..';
+import initAgent, { getClient, InputAgent } from './initAgent';
 
+interface NodeParamOpt extends ParamOpt {
+  agent?: InputAgent;
+}
+type SupportProtocol = 'http:' | 'https:';
 export default class NodeParam extends Param {
-  private readonly agent: AgentConfig;
-  private body: NodeBody;
+  private readonly agent: http.Agent | https.Agent;
   constructor({
     url,
     path,
@@ -12,33 +16,18 @@ export default class NodeParam extends Param {
     method,
     header,
     timeout,
-    body = null,
     agent,
   }: NodeParamOpt) {
     super({ url, path, search, method, header, timeout });
-    this.agent = initAgent(this.url.protocol, agent);
-    this.body = initBody(body, this.method, this.header.get('content-type'));
+    this.agent = initAgent(<any>this.url.protocol, agent);
   }
 
-  addContentLength(body: NodeBody): this {
-    const propName = 'content-length';
-    if (body === null) {
-      this.header.set(propName, '0');
-      return this;
-    }
-    this.header.set(propName, String(Buffer.byteLength(body)));
-    return this;
-  }
-
-  getAgent(): AgentConfig {
+  getAgent(): http.Agent | https.Agent {
     return this.agent;
   }
 
   client() {
-    return getClient(this.url.protocol);
-  }
-
-  getBody(): NodeBody {
-    return this.body;
+    return getClient(<SupportProtocol>this.url.protocol);
   }
 }
+export { NodeParamOpt };

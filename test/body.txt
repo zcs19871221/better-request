@@ -1,0 +1,20 @@
+------WebKitFormBoundaryjBvDh0ztZnXsU4Wo
+Content-Disposition: form-data; name="submit-name"
+
+
+------WebKitFormBoundaryjBvDh0ztZnXsU4Wo
+Content-Disposition: form-data; name="sucker"; filename="jsconfig.json"
+Content-Type: application/json
+
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "baseUrl": "./",
+    "paths": {
+      "Src/*": ["src/*"]
+    }
+  },
+  "exclude": ["node_modules"]
+}
+
+------WebKitFormBoundaryjBvDh0ztZnXsU4Wo--

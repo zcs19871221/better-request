@@ -1,7 +1,35 @@
 import { parse } from './queryString';
-import Header from './Header';
-import initUrl from './initUrl';
+import Header, { InputHeader } from './Header';
+import initUrl, { InputURL, InputSearch } from './initUrl';
 
+type InputMethod =
+  | 'GET'
+  | 'HEAD'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'CONNECT'
+  | 'OPTIONS'
+  | 'TRACE'
+  | 'PATCH';
+type ParamOpt = {
+  url: InputURL;
+  path?: string;
+  search?: InputSearch;
+  method: InputMethod;
+  header?: InputHeader;
+  timeout?: number;
+};
+
+interface ParamInterface {
+  getUrl(): URL;
+  getMethod(): InputMethod;
+  getHeader(key?: string | string[]): InputHeader | string | string[];
+  getTimeout(): number;
+  setSearch(search: { [key: string]: string }): this;
+  getSearch(): { [key: string]: string };
+}
+export { ParamOpt };
 export default abstract class Params implements ParamInterface {
   protected url: URL;
   protected readonly method: InputMethod;
@@ -22,8 +50,17 @@ export default abstract class Params implements ParamInterface {
     return this.method;
   }
 
-  getHeader(): InputHeader {
-    return this.header.getAll();
+  getHeader(): InputHeader;
+  getHeader(key: string): string;
+  getHeader(key: string[]): string[];
+  getHeader(key?: any): any {
+    if (key === undefined) {
+      return this.header.getAll();
+    }
+    if (typeof key === 'string') {
+      return this.header.get('key');
+    }
+    return this.header.gets(key);
   }
 
   getTimeout(): number {
@@ -38,6 +75,4 @@ export default abstract class Params implements ParamInterface {
   getSearch(): { [key: string]: string } {
     return parse(this.url.search);
   }
-
-  abstract getBody(): any;
 }

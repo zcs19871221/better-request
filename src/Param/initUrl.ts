@@ -1,5 +1,10 @@
 import { parse, stringify, merge } from './queryString';
 
+type InputURL = URL | string;
+type value = string | number;
+type InputSearch = string | { [key: string]: value | value[] };
+
+export { InputSearch, InputURL };
 export default function(
   url: InputURL,
   path: string = '',
@@ -9,6 +14,9 @@ export default function(
     url = new URL(url);
   } else {
     url = new URL(url.toString());
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('url只能是http或https');
   }
   path = path.trim();
   if (search) {

@@ -1,3 +1,13 @@
+interface HeaderInterface {
+  getAll(): InputHeader;
+  get(key: string): string;
+  gets(keys: string[]): string[];
+  set(key: string, value: string): this;
+}
+type InputHeader = {
+  [headerKey: string]: string;
+};
+
 export default class Header implements HeaderInterface {
   private header: InputHeader;
 
@@ -38,3 +48,4 @@ export default class Header implements HeaderInterface {
     return this;
   }
 }
+export { InputHeader };

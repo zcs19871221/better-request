@@ -10,7 +10,7 @@ const merge = (object: { [prop: string]: any }, key: any, value: any) => {
   }
   return object;
 };
-const parse = (str: any): object => {
+const parse = (str: any): { [key: string]: any } => {
   if (notEmptyStr(str)) {
     return str
       .trim()

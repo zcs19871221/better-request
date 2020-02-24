@@ -1,6 +1,16 @@
 import Fetcher from '..';
 import BrowserParam from '../../Param/browser';
-import Header from '../../Param/Header';
+import Header, { InputHeader } from '../../Param/Header';
+
+type BrowserBody =
+  | string
+  | Document
+  | Blob
+  | ArrayBufferView
+  | ArrayBuffer
+  | FormData
+  | URLSearchParams
+  | ReadableStream<Uint8Array>;
 
 export default class BrowserFetcher extends Fetcher<BrowserBody> {
   private req: XMLHttpRequest | null;
@@ -33,13 +43,15 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     return this;
   }
 
-  _send(body: BrowserBody): this {
+  _send(body: BrowserBody | null, overwriteHeader: InputHeader = {}): this {
     const xhr = new XMLHttpRequest();
     this.req = xhr;
     xhr.open(this.param.getMethod(), String(this.param.getUrl()));
-    Object.entries(this.param.getHeader()).forEach(([key, value]) => {
-      xhr.setRequestHeader(key, value);
-    });
+    Object.entries({ ...this.param.getHeader(), ...overwriteHeader }).forEach(
+      ([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      },
+    );
     xhr.addEventListener('load', () => {
       if (this._next('SUCCESS')) {
         this.resolve(this.req && this.req.response);
@@ -55,7 +67,7 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
         this.hasAborted = true;
       }
     });
-    xhr.send(body || this.param.getBody());
+    xhr.send(body);
     return this;
   }
 

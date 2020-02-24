@@ -1,9 +1,9 @@
+import { IncomingMessage } from 'http';
 import Fetcher from '..';
 import NodeParam from '../../Param/node';
-import { IncomingMessage } from 'http';
-import Header from '../../Param/Header';
+import Header, { InputHeader } from '../../Param/Header';
 
-export default class NodeFetcher extends Fetcher<NodeBody> {
+export default class NodeFetcher extends Fetcher<string | Buffer> {
   private req: any;
   public param: NodeParam;
   constructor(param: NodeParam) {
@@ -22,8 +22,7 @@ export default class NodeFetcher extends Fetcher<NodeBody> {
     return this;
   }
 
-  _send(body: NodeBody): this {
-    this.param.addContentLength(body);
+  _send(body: string | Buffer | null, overWriteHeader: InputHeader = {}): this {
     let len = 0;
     const buf: Buffer[] = [];
     this.req = this.param.client().request(
@@ -31,7 +30,7 @@ export default class NodeFetcher extends Fetcher<NodeBody> {
       {
         agent: this.param.getAgent(),
         method: this.param.getMethod(),
-        headers: this.param.getHeader(),
+        headers: { ...this.param.getHeader(), ...overWriteHeader },
       },
       (res: IncomingMessage) => {
         this._setResHeader(res);

@@ -5,4 +5,5 @@ declare module 'better-utils' {
   export const notEmptyStr: (target: any) => boolean;
   export const isString: (target: any) => boolean;
   export const isTypedArray: (target: any) => boolean;
+  export const mockUuid: (target?: number) => string;
 }

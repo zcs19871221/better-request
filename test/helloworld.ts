@@ -1,17 +1,14 @@
 import Request from '../src/Controller/node';
-const request = new Request({
-  url: 'http://mp.163.com/wemedia/customer/articleList.do?_=1580872063420',
-  method: 'POST',
-  header: {
-    'content-type': 'application/x-www-form-urlencoded',
-  },
-  body: {
-    pageNo: 1,
-    pageSize: 20,
-    topicId: '00019AD9',
-  },
-});
+type typeA = string | Buffer;
+type typeB = string[];
 
-request.request().then(value => {
-  console.log(value);
-});
+function istypeA(input: typeA | typeB): input is typeA {
+  return typeof input === 'string' || Buffer.isBuffer(input);
+}
+
+const main = (input: typeA | typeB): string => {
+  if (istypeA(input)) {
+    return 'sdfds';
+  }
+  return input.map(each => each).join('ss');
+};
