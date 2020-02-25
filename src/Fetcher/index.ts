@@ -166,7 +166,6 @@ export default abstract class Fetcher<T> implements FetcherInterface {
       this.status = status;
       return true;
     }
-    console.debug('status不能从', this.status, '到', status);
     return false;
   }
 
