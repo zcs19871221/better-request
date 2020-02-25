@@ -55,15 +55,15 @@ export default class NodeController extends Controller<NodeBody> {
 
   static send(
     opt: NodeControllerOpt & NodeParamOpt,
-    body: NodeBody,
+    body?: NodeBody,
   ): Promise<any>;
   static send(
     opt: NodeControllerOpt & NodeParamOpt,
-    body: object,
+    body?: object,
   ): Promise<any>;
   static send(
     opt: NodeControllerOpt & NodeParamOpt,
-    body: NodeBody | object,
+    body: NodeBody | object = null,
   ): Promise<any> {
     if (_isNodeBody(body)) {
       return new NodeController(opt).request(body);
@@ -71,7 +71,63 @@ export default class NodeController extends Controller<NodeBody> {
     return new NodeController(opt).request(body);
   }
 
-  _iconv(res: Buffer, contentType: string): string {
+  static extMapMimeType = <any>{
+    '.doc': 'application/msword',
+    '.docx':
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.rtf': 'application/rtf',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx':
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx':
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.pps': 'application/vnd.ms-powerpoint',
+    '.ppsx':
+      'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+    '.pdf': 'application/pdf',
+    '.swf': 'application/x-shockwave-flash',
+    '.dll': 'application/x-msdownload',
+    '.exe': 'application/octet-stream',
+    '.msi': 'application/octet-stream',
+    '.chm': 'application/octet-stream',
+    '.cab': 'application/octet-stream',
+    '.ocx': 'application/octet-stream',
+    '.rar': 'application/octet-stream',
+    '.tar': 'application/x-tar',
+    '.tgz': 'application/x-compressed',
+    '.zip': 'application/x-zip-compressed',
+    '.z': 'application/x-compress',
+    '.wav': 'audio/wav',
+    '.wma': 'audio/x-ms-wma',
+    '.wmv': 'video/x-ms-wmv',
+    '.mp3': 'audio/mpeg',
+    '.mp2': 'audio/mpeg',
+    '.mpe': 'audio/mpeg',
+    '.mpeg': 'audio/mpeg',
+    '.mpg': 'audio/mpeg',
+    '.rm': 'application/vnd.rn-realmedia',
+    '.mid': 'audio/mid',
+    '.midi': 'audio/mid',
+    '.rmi': 'audio/mid',
+    '.bmp': 'image/bmp',
+    '.gif': 'image/gif',
+    '.png': 'image/png',
+    '.tif': 'image/tiff',
+    '.tiff': 'image/tiff',
+    '.jpe': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.jpg': 'image/jpeg',
+    '.txt': 'text/plain',
+    '.xml': 'text/xml',
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'text/javascript',
+    '.mht': 'message/rfc822',
+    '.mhtml': 'message/rfc822',
+  };
+
+  private _iconv(res: Buffer, contentType: string): string {
     const _tmp = /charset=(.*?)($|;)/iu.exec(contentType);
     let charset = 'utf-8';
     if (_tmp && _tmp[1] && _tmp[1] !== 'utf-8') {
@@ -80,11 +136,13 @@ export default class NodeController extends Controller<NodeBody> {
     return String(res);
   }
 
-  _createFileBody(opt: object): [string, string] {
+  private _createFileBody(opt: object): [string, string] {
     const boundary = mockUuid();
     const contentBlock = Object.entries(opt).map(([name, filePath]) => {
       const fileName = path.basename(filePath);
-      const contentType = guess(path.extname(filePath));
+      const contentType =
+        NodeController.extMapMimeType[path.extname(filePath)] ||
+        'application/octet-stream';
       const content = fs.readFileSync(filePath, 'utf-8');
       return `--${boundary}\r\nContent-Disposition: form-data;name="${name}"${
         fileName ? ` fileName="${fileName}"` : ''

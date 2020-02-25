@@ -31,7 +31,7 @@ export default abstract class Controller<V> {
     this.retryInterval = retryInterval;
   }
 
-  _statusCheck() {
+  protected _statusCheck() {
     if (!this.fetcher.is2xx() && !this.fetcher.is3xx()) {
       throw new Error(`status code not 2xx or 3xx:${this.fetcher.statusCode}`);
     }
@@ -40,7 +40,7 @@ export default abstract class Controller<V> {
   abstract _request(body: V, header: InputHeader): Promise<any>;
   abstract request(body: any): Promise<any>;
 
-  async _ensureRequest(body: V, header: InputHeader): Promise<any> {
+  protected async _ensureRequest(body: V, header: InputHeader): Promise<any> {
     for (let retryTimes = 0; retryTimes <= this.retry; retryTimes += 1) {
       try {
         return this._request(body, header);

@@ -25,7 +25,7 @@
           "isDefault": true
         }
       },
-      "outFiles": ["${workspaceFolder}/out/**/*.js"]
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     }
   ]
 }

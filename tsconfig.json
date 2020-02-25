@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2019",
+    "target": "ES2017",
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "dist",
@@ -9,7 +9,12 @@
     "esModuleInterop": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "Src/*": ["./src/*"]
+    }
   },
-  "include": ["test/**/*", "src/**/*"]
+  "exclude": ["**/*.test.ts"],
+  "include": ["test/**/*", "src/**/*", "helloworld.ts"]
 }

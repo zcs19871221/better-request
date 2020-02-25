@@ -30,7 +30,10 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
       {
         agent: this.param.getAgent(),
         method: this.param.getMethod(),
-        headers: { ...this.param.getHeader(), ...overWriteHeader },
+        headers: {
+          ...this.param.getHeader(),
+          ...overWriteHeader,
+        },
       },
       (res: IncomingMessage) => {
         this._setResHeader(res);
