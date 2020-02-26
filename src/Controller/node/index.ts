@@ -12,24 +12,28 @@ type NodeBody = string | Buffer | null;
 declare interface NodeControllerOpt extends ControllerOpt {
   readonly redirect?: boolean;
   readonly maxRedirect?: number;
+  readonly parsers?: Parser[];
 }
+
+type Redirect = ['redirect', number];
+interface CustomParser {
+  (res: any, header: InputHeader): any;
+}
+type Parser = 'status' | Redirect | 'iconv' | 'json' | CustomParser;
 
 function _isNodeBody(body: NodeBody | object): body is NodeBody {
   return Buffer.isBuffer(body) || typeof body === 'string' || body === null;
 }
+
 export default class NodeController extends Controller<NodeBody> {
   private rediectTimes: number = 0;
-  private redirect: boolean;
-  private maxRedirect: number;
+  private parsers: Parser[] = [];
   protected fetcher: NodeFetcher;
   protected param: NodeParam;
   constructor({
-    presetParser = true,
-    parser,
     retry = 2,
     retryInterval,
-    redirect = true,
-    maxRedirect = 10,
+    parsers = ['status', ['redirect', 10], 'iconv', 'json'],
     url,
     path,
     search,
@@ -38,7 +42,7 @@ export default class NodeController extends Controller<NodeBody> {
     timeout,
     agent,
   }: NodeControllerOpt & NodeParamOpt) {
-    super({ presetParser, parser, retry, retryInterval });
+    super({ retry, retryInterval });
     this.param = new NodeParam({
       url,
       path,
@@ -49,8 +53,7 @@ export default class NodeController extends Controller<NodeBody> {
       agent,
     });
     this.fetcher = new NodeFetcher(this.param);
-    this.redirect = redirect;
-    this.maxRedirect = maxRedirect;
+    this.parsers = parsers;
   }
 
   static send(
@@ -127,7 +130,7 @@ export default class NodeController extends Controller<NodeBody> {
     '.mhtml': 'message/rfc822',
   };
 
-  private _iconv(res: Buffer, contentType: string): string {
+  private _iconv(res: Buffer, contentType: string): string | Buffer {
     const _tmp = /charset=(.*?)($|;)/iu.exec(contentType);
     let charset = 'utf-8';
     if (_tmp && _tmp[1] && _tmp[1] !== 'utf-8') {
@@ -151,6 +154,20 @@ export default class NodeController extends Controller<NodeBody> {
       }\r\n\r\n${content}`;
     });
     return [contentBlock.join('\r\n'), boundary];
+  }
+
+  async ss() {
+    try {
+      const [body, header] = this._formatBodyAndHeader();
+      const fetch = () => {
+        this.fetcher.send(body, header);
+      };
+      const result = this._ensureRequest();
+      this.parser(result);
+    } catch (error) {
+      throw error;
+    } finally {
+    }
   }
 
   async request(body: NodeBody): Promise<any>;
@@ -193,17 +210,49 @@ export default class NodeController extends Controller<NodeBody> {
     return resString;
   }
 
+  private needStatusCodeCheck() {
+    return this.parsers.find(each => each === 'status');
+  }
+
+  private needRedirect() {
+    const redirectOpt = <Redirect>(
+      this.parsers.find(each => Array.isArray(each) && each[0] === 'redirect')
+    );
+    if (
+      redirectOpt &&
+      this.fetcher.is3xx() &&
+      this.fetcher.getResHeader('location') &&
+      this.rediectTimes < redirectOpt[1]
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private needIconv() {
+    return this.parsers.find(each => each === 'iconv');
+  }
+
+  private needParseJson(contentType: string) {
+    return (
+      this.parsers.find(each => each === 'json') &&
+      contentType.includes('application/json')
+    );
+  }
+
+  private getCustomParser(): CustomParser[] {
+    return <CustomParser[]>(
+      this.parsers.filter(each => typeof each === 'function')
+    );
+  }
+
   async _request(body: NodeBody, header?: InputHeader): Promise<any> {
     const fetchRes: Buffer = await this.fetcher.send(body, header);
     const contentType: string = this.fetcher.getResHeader('content-type') || '';
-
-    await this._statusCheck();
-    if (
-      this.redirect &&
-      this.fetcher.is3xx() &&
-      this.fetcher.getResHeader('location') &&
-      this.rediectTimes < this.maxRedirect
-    ) {
+    if (this.needStatusCodeCheck()) {
+      this._statusCheck();
+    }
+    if (this.needRedirect()) {
       this.rediectTimes += 1;
       this.fetcher = new NodeFetcher(
         new NodeParam({
@@ -212,17 +261,18 @@ export default class NodeController extends Controller<NodeBody> {
           timeout: 5 * 1000,
         }),
       );
-      return this.request(body);
+      return this.request(null);
     }
-    let parsed: string | object = '';
-    if (this.presetParser) {
-      parsed = await this._iconv(fetchRes, contentType);
-      if (contentType.includes('application/json')) {
-        parsed = JSON.parse(parsed);
-      }
+    let parsed: string | Buffer | object = fetchRes;
+    if (this.needIconv()) {
+      parsed = this._iconv(fetchRes, contentType);
     }
-    if (this.parser) {
-      return this.parser(parsed, this.fetcher.getResHeader());
+    if (this.needParseJson(contentType)) {
+      parsed = JSON.parse(String(parsed));
+    }
+    const customParsers: CustomParser[] = this.getCustomParser();
+    for (let i = 0, len = customParsers.length; i < len; i++) {
+      parsed = customParsers[i](parsed, this.fetcher.getResHeader());
     }
     return parsed;
   }

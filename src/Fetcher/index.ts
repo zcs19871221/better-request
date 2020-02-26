@@ -24,7 +24,9 @@ interface FetcherInterface {
   is4xx(): boolean;
   is5xx(): boolean;
   send(body?: any): any;
-  getResHeader(key?: string | string[]): InputHeader | string | string[];
+  getResHeader(key: string): string;
+  getResHeader(key: string[]): string[];
+  getResHeader(): InputHeader;
 }
 
 export { FetcherInterface };
