@@ -192,3 +192,5 @@ test('upload file body', async () => {
     fs.readFileSync(targetFile, 'utf-8'),
   );
 });
+
+test('parsers', () => {});
