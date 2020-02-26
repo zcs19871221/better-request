@@ -10,15 +10,14 @@ import { stringify } from '../../Param/queryString';
 import extMapMime from './extMapMime';
 
 type NodeBody = string | Buffer | null;
-declare interface NodeControllerOpt extends ControllerOpt {
-  readonly parsers?: Parser[];
-}
-
 type Redirect = ['redirect', number];
 interface CustomParser {
   (res: string | Buffer | object, header: InputHeader): any;
 }
 type Parser = Redirect | 'iconv' | 'json' | CustomParser;
+declare interface NodeControllerOpt extends ControllerOpt {
+  readonly parsers?: Parser[];
+}
 
 function _isNodeBody(body: NodeBody | object): body is NodeBody {
   return Buffer.isBuffer(body) || typeof body === 'string' || body === null;
@@ -87,18 +86,25 @@ export default class NodeController extends Controller<NodeBody> {
 
   private createUpLoadBody(opt: object): [string, string] {
     const boundary = mockUuid();
-    const contentBlock = Object.entries(opt).map(([name, filePath]) => {
-      const fileName = path.basename(filePath);
-      const contentType =
-        extMapMime[path.extname(filePath)] || 'application/octet-stream';
-      const content = fs.readFileSync(filePath, 'utf-8');
-      return `--${boundary}\r\nContent-Disposition: form-data;name="${name}"${
-        fileName ? ` fileName="${fileName}"` : ''
-      }\r\n${
-        contentType ? `content-type="${contentType}"` : ''
-      }\r\n\r\n${content}`;
+    const block = Object.entries(opt).map(([name, target]) => {
+      let fileName = '';
+      let content = '';
+      let contentType = '';
+      if (fs.existsSync(target)) {
+        fileName = path.basename(target);
+        contentType =
+          extMapMime[path.extname(target)] || 'application/octet-stream';
+        content = fs.readFileSync(target, 'utf-8');
+      } else {
+        content = target;
+      }
+      const lineOne = `--${boundary}\r\nContent-Disposition: form-data; name="${name}"`;
+      const file = fileName
+        ? `; fileName="${fileName}"\r\nContent-Type: ${contentType}`
+        : '';
+      return lineOne + file + '\r\n\r\n' + content;
     });
-    return [contentBlock.join('\r\n'), boundary];
+    return [block.join('\r\n') + `\r\n--${boundary}--`, boundary];
   }
 
   protected formatRequestBodyAndHeader(
@@ -111,7 +117,7 @@ export default class NodeController extends Controller<NodeBody> {
     } else {
       const contentType = this.param.getHeader('content-type');
       switch (contentType) {
-        case 'aplication/json':
+        case 'application/json':
           formated = JSON.stringify(body);
           break;
         case 'application/x-www-form-urlencoded':

@@ -1,23 +1,32 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+let visited = 0;
 
-http
+const server = http
   .createServer((req, res) => {
-    if (req.url.endsWith('.html')) {
-      const file = fs.readFileSync(path.join(__dirname, './test.html'));
-      res.setHeader('content-type', 'text/html');
-      return res.end(file);
-    }
-    let str = '';
-    req.on('data', chunk => {
-      str += chunk;
-    });
-    req.on('end', chunk => {
-      if (str && req.method.toLowerCase() === 'post') {
-        fs.writeFileSync(path.join(__dirname, 'body.txt'), str);
+    let timer;
+    if (req.url === '/errorRetry') {
+      visited += 1;
+      clearTimeout(timer);
+      if (visited < 3) {
+        timer = setTimeout(() => {
+          res.end('success at:' + visited);
+        }, 5000);
+        return;
       }
-      return res.end(req.method + 'get it');
-    });
+      res.end('success at:' + visited);
+      return;
+    }
+    if (req.url === '/success') {
+      res.setHeader('x-tmp', 'tmp');
+      res.end('success');
+      return;
+    }
+    if (req.url === '/error') {
+      res.statusCode = 404;
+      res.end('error');
+      return;
+    }
   })
-  .listen(80);
+  .listen(9978);

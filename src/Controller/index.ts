@@ -64,8 +64,9 @@ export default abstract class Controller<V> {
     } catch (error) {
       if (this.onError) {
         this.onError(error, this.fetcher.getResHeader());
+      } else {
+        throw error;
       }
-      throw error;
     } finally {
       if (this.onFinish) {
         this.onFinish(this.fetcher.getResHeader());

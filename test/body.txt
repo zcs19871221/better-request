@@ -1,20 +1,11 @@
-------WebKitFormBoundaryjBvDh0ztZnXsU4Wo
-Content-Disposition: form-data; name="submit-name"
+------WebKitFormBoundaryQXYO0HkSkynPF7fm
+Content-Disposition: form-data; name="title"
 
 
-------WebKitFormBoundaryjBvDh0ztZnXsU4Wo
-Content-Disposition: form-data; name="sucker"; filename="jsconfig.json"
-Content-Type: application/json
+------WebKitFormBoundaryQXYO0HkSkynPF7fm
+Content-Disposition: form-data; name="multipleFiles"; filename=".gitignore"
+Content-Type: application/octet-stream
 
-{
-  "compilerOptions": {
-    "target": "es2017",
-    "baseUrl": "./",
-    "paths": {
-      "Src/*": ["src/*"]
-    }
-  },
-  "exclude": ["node_modules"]
-}
-
-------WebKitFormBoundaryjBvDh0ztZnXsU4Wo--
+node_modules
+dist
+------WebKitFormBoundaryQXYO0HkSkynPF7fm--

@@ -58,7 +58,7 @@ export default abstract class Params implements ParamInterface {
       return this.header.getAll();
     }
     if (typeof key === 'string') {
-      return this.header.get('key');
+      return this.header.get(key);
     }
     return this.header.gets(key);
   }
