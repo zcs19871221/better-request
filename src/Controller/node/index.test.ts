@@ -1,5 +1,6 @@
 import http from 'http';
 import path from 'path';
+import iconv from 'iconv-lite';
 import fs from 'fs';
 import querystring from 'querystring';
 import formidable from 'formidable';
@@ -67,6 +68,42 @@ beforeAll(() => {
             }
           });
         }
+        return;
+      }
+      if (req.url && req.url.startsWith('/presets')) {
+        let id: any = req.url.match(/id=(\d+)/);
+        if (!id) {
+          id = 0;
+        } else {
+          id = Number(id[1]);
+        }
+        if (id < 5) {
+          res.statusCode = 302;
+          res.setHeader(
+            'location',
+            `http://localhost:${port}/presets?id=${id + 1}`,
+          );
+          res.setHeader('content-type', 'application/json; charset=GBK');
+          res.end(
+            iconv.encode(
+              JSON.stringify({
+                msg: '重定向',
+              }),
+              'GBK',
+            ),
+          );
+        } else {
+          res.setHeader('content-type', 'application/json; charset=GBK');
+          res.end(
+            iconv.encode(
+              JSON.stringify({
+                name: '张成思,redirect:' + id,
+              }),
+              'GBK',
+            ),
+          );
+        }
+        return;
       }
     })
     .listen(port);
@@ -89,6 +126,25 @@ test('error retry', async () => {
   });
   const res = await co.request(null);
   expect(res).toBe('success at:3');
+});
+test('parse error retry', async () => {
+  let index = 0;
+  const co = new Controller({
+    url: `${domain}/success`,
+    parser: () => {
+      if (index < 2) {
+        index += 1;
+        throw new Error('fucked');
+      }
+      return 'parser return success at ' + index;
+    },
+    method: 'GET',
+    retry: 2,
+    timeout: 100,
+    retryInterval: 0,
+  });
+  const res = await co.request(null);
+  expect(res).toBe('parser return success at 2');
 });
 
 test('success & finish hooks', async () => {
@@ -193,4 +249,87 @@ test('upload file body', async () => {
   );
 });
 
-test('parsers', () => {});
+test('status filter', async () => {
+  const co = new Controller({
+    url: `${domain}/error`,
+    status: /404/,
+    method: 'GET',
+  });
+  let hasError = null;
+  try {
+  } catch (error) {
+    hasError = error;
+  }
+  await co.request(null);
+  expect(co.fetcher.statusCode).toBe(404);
+  expect(hasError).toBe(null);
+  const co2 = new Controller({
+    url: `${domain}/error`,
+    method: 'GET',
+  });
+  let mayError = null;
+  try {
+    await co2.request(null);
+  } catch (error) {
+    mayError = error;
+  }
+  expect(mayError instanceof Error).toBe(true);
+});
+
+test('preset parsers and custom parser', async () => {
+  const co = new Controller({
+    url: `${domain}/presets`,
+    method: 'GET',
+    parsers: [['redirect', 10], 'iconv', 'json'],
+    parser: (response, header) => {
+      return `body:${response.name} header:${header['content-type']}`;
+    },
+  });
+  const res = await co.request(null);
+  expect(res).toBe(
+    'body:张成思,redirect:5 header:application/json; charset=GBK',
+  );
+});
+test('redirect exceed', async () => {
+  const co = new Controller({
+    url: `${domain}/presets`,
+    method: 'GET',
+    parsers: [['redirect', 3], 'iconv', 'json'],
+    parser: (response, header) => {
+      return `body:${response.name} header:${header['content-type']}`;
+    },
+  });
+  let catched = null;
+  try {
+    await co.request(null);
+  } catch (error) {
+    catched = error;
+  }
+  expect(catched.message).toBe('重定向超过3次');
+});
+test('conditon prest parser', async () => {
+  const co = new Controller({
+    url: `${domain}/presets`,
+    method: 'GET',
+    parsers: ['iconv', 'json'],
+  });
+  const res = await co.request(null);
+  expect(res).toEqual({ msg: '重定向' });
+  expect(co.fetcher.statusCode).toBe(302);
+
+  const co2 = new Controller({
+    url: `${domain}/presets`,
+    method: 'GET',
+    parsers: ['json'],
+  });
+  const res2 = await co2.request(null);
+  expect(res2).toEqual({ msg: '�ض���' });
+
+  const co3 = new Controller({
+    url: `${domain}/presets`,
+    method: 'GET',
+    parsers: ['iconv'],
+  });
+  const res3 = await co3.request(null);
+  expect(res3).toEqual(JSON.stringify({ msg: '重定向' }));
+});

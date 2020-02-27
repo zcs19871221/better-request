@@ -19,26 +19,32 @@ interface ControllerOpt {
   readonly onError?: ErrorHook;
   readonly onFinish?: FinishHook;
   readonly status?: RegExp;
+  readonly parser?: customParser | undefined;
 }
 
+interface customParser {
+  (response: any, header: InputHeader): any;
+}
 export { ControllerOpt };
 export default abstract class Controller<V> {
-  protected fetcher!: FetcherInterface;
-  protected param!: Param;
+  public fetcher!: FetcherInterface;
+  public param!: Param;
   private onError: ErrorHook | undefined;
   private onSuccess: SuccessHook | undefined;
   private onFinish: FinishHook | undefined;
   private retry: number;
   private retryInterval: number;
   private status: RegExp;
+  private parser: customParser | undefined;
 
   constructor({
     retry = 2,
     retryInterval = 50,
-    status = /^2\d\d$/,
+    status = /^[23]\d\d$/,
     onSuccess,
     onError,
     onFinish,
+    parser,
   }: ControllerOpt = {}) {
     this.onError = onError;
     this.onSuccess = onSuccess;
@@ -46,17 +52,14 @@ export default abstract class Controller<V> {
     this.retry = retry;
     this.retryInterval = retryInterval;
     this.status = status;
+    this.parser = parser;
   }
 
   async request(body: V): Promise<any>;
   async request(body: object): Promise<any>;
   async request(body: V | object): Promise<any> {
     try {
-      const [formatedBody, overWriteHeader] = this.formatRequestBodyAndHeader(
-        body,
-      );
-      const rawData = await this.ensureRequest(formatedBody, overWriteHeader);
-      const result = await this.parseResponse(rawData);
+      const result = await this.ensureRequest(body);
       if (this.onSuccess) {
         this.onSuccess(result, this.fetcher.getResHeader());
       }
@@ -74,17 +77,30 @@ export default abstract class Controller<V> {
     }
   }
 
+  protected abstract needRedirect(): boolean;
+  protected abstract redirect(): Promise<any>;
+
   protected abstract formatRequestBodyAndHeader(
     body: V | object,
   ): [V, InputHeader];
-  protected abstract parseResponse(response: any): Promise<any>;
+  protected abstract presetParse(response: any): Promise<any>;
   protected abstract replaceFetcher(): void;
 
-  protected async ensureRequest(body: V, header: InputHeader): Promise<any> {
+  protected async ensureRequest(body: V | object): Promise<any> {
     for (let retryTimes = 0; retryTimes <= this.retry; retryTimes += 1) {
       try {
-        const result = await this.fetcher.send(body, header);
+        const [formatedBody, overWriteHeader] = this.formatRequestBodyAndHeader(
+          body,
+        );
+        const rawData = await this.fetcher.send(formatedBody, overWriteHeader);
         this.statusCodeCheck();
+        if (this.needRedirect()) {
+          return this.redirect();
+        }
+        let result = await this.presetParse(rawData);
+        if (this.parser) {
+          result = await this.parser(result, this.fetcher.getResHeader());
+        }
         return result;
       } catch (error) {
         if (retryTimes === this.retry) {

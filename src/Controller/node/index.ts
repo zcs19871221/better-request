@@ -11,10 +11,8 @@ import extMapMime from './extMapMime';
 
 type NodeBody = string | Buffer | null;
 type Redirect = ['redirect', number];
-interface CustomParser {
-  (res: string | Buffer | object, header: InputHeader): any;
-}
-type Parser = Redirect | 'iconv' | 'json' | CustomParser;
+
+type Parser = Redirect | 'iconv' | 'json';
 declare interface NodeControllerOpt extends ControllerOpt {
   readonly parsers?: Parser[];
 }
@@ -26,12 +24,13 @@ function _isNodeBody(body: NodeBody | object): body is NodeBody {
 export default class NodeController extends Controller<NodeBody> {
   private rediectTimes: number = 0;
   private parsers: Parser[] = [];
-  protected fetcher: NodeFetcher;
-  protected param: NodeParam;
+  public fetcher: NodeFetcher;
+  public param: NodeParam;
   constructor({
     retry = 2,
     retryInterval = 50,
     parsers = [['redirect', 10], 'iconv', 'json'],
+    parser,
     onSuccess,
     onError,
     status,
@@ -51,6 +50,7 @@ export default class NodeController extends Controller<NodeBody> {
       onError,
       onFinish,
       status,
+      parser,
     });
     this.param = new NodeParam({
       url,
@@ -77,8 +77,8 @@ export default class NodeController extends Controller<NodeBody> {
 
   private iconv(res: Buffer, contentType: string): string | Buffer {
     const _tmp = /charset=(.*?)($|;)/iu.exec(contentType);
-    let charset = 'utf-8';
-    if (_tmp && _tmp[1] && _tmp[1] !== 'utf-8') {
+    const charset = (_tmp && _tmp[1] ? _tmp[1] : 'utf-8').trim();
+    if (charset.toLowerCase() !== 'utf-8') {
       return iconvLite.decode(res, charset);
     }
     return String(res);
@@ -141,19 +141,34 @@ export default class NodeController extends Controller<NodeBody> {
     return [formated, header];
   }
 
-  private needRedirect() {
-    const redirectOpt = <Redirect>(
-      this.parsers.find(each => Array.isArray(each) && each[0] === 'redirect')
+  protected needRedirect() {
+    const redirectOpt = this.parsers.find(
+      each => Array.isArray(each) && each[0] === 'redirect',
     );
     if (
       redirectOpt &&
       this.fetcher.is3xx() &&
-      this.fetcher.getResHeader('location') &&
-      this.rediectTimes < redirectOpt[1]
+      this.fetcher.getResHeader('location')
     ) {
-      return true;
+      if (this.rediectTimes < redirectOpt[1]) {
+        return true;
+      } else {
+        throw new Error(`重定向超过${redirectOpt[1]}次`);
+      }
     }
     return false;
+  }
+
+  protected redirect() {
+    this.rediectTimes += 1;
+    this.fetcher = new NodeFetcher(
+      new NodeParam({
+        url: this.fetcher.getResHeader('location'),
+        method: 'GET',
+        timeout: 5 * 1000,
+      }),
+    );
+    return this.ensureRequest(null);
   }
 
   private needIconv() {
@@ -167,41 +182,20 @@ export default class NodeController extends Controller<NodeBody> {
     );
   }
 
-  private getCustomParser(): CustomParser[] {
-    return <CustomParser[]>(
-      this.parsers.filter(each => typeof each === 'function')
-    );
-  }
-
   protected replaceFetcher() {
     this.fetcher = new NodeFetcher(this.param);
   }
 
-  protected async parseResponse(
+  protected async presetParse(
     response: Buffer,
   ): Promise<string | Buffer | object> {
     const contentType: string = this.fetcher.getResHeader('content-type') || '';
-    if (this.needRedirect()) {
-      this.rediectTimes += 1;
-      this.fetcher = new NodeFetcher(
-        new NodeParam({
-          url: this.fetcher.getResHeader('location'),
-          method: 'GET',
-          timeout: 5 * 1000,
-        }),
-      );
-      return this.request(null);
-    }
     let parsed: string | Buffer | object = response;
     if (this.needIconv()) {
       parsed = this.iconv(response, contentType);
     }
     if (this.needParseJson(contentType)) {
       parsed = JSON.parse(String(parsed));
-    }
-    const customParsers: CustomParser[] = this.getCustomParser();
-    for (let i = 0, len = customParsers.length; i < len; i++) {
-      parsed = await customParsers[i](parsed, this.fetcher.getResHeader());
     }
     return parsed;
   }
