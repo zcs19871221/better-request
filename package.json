@@ -28,6 +28,8 @@
     "better-utils": "2.1.0",
     "iconv-lite": "^0.5.1"
   },
+  "browser": "src/Controller/node/index.js",
+  "main": "src/Controller/node/index.js",
   "devDependencies": {
     "@types/formidable": "^1.0.31",
     "@types/jest": "^25.1.2",

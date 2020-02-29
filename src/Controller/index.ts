@@ -55,29 +55,69 @@ export default abstract class Controller<V> {
     this.parser = parser;
   }
 
+  private onSuccessHandler(result: any) {
+    if (this.onSuccess) {
+      this.onSuccess(result, this.fetcher.getResHeader());
+    }
+  }
+
+  private onErrorHandler(error: Error) {
+    if (this.onError) {
+      this.onError(error, this.fetcher.getResHeader());
+    } else {
+      throw error;
+    }
+  }
+
+  private onFinishHandler() {
+    if (this.onFinish) {
+      this.onFinish(this.fetcher.getResHeader());
+    }
+  }
+
   async request(body: V): Promise<any>;
   async request(body: object): Promise<any>;
   async request(body: V | object): Promise<any> {
     try {
       const result = await this.ensureRequest(body);
-      if (this.onSuccess) {
-        this.onSuccess(result, this.fetcher.getResHeader());
-      }
+      this.onSuccessHandler(result);
       return result;
     } catch (error) {
-      if (this.onError) {
-        this.onError(error, this.fetcher.getResHeader());
-      } else {
-        throw error;
-      }
+      this.onErrorHandler(error);
     } finally {
-      if (this.onFinish) {
-        this.onFinish(this.fetcher.getResHeader());
-      }
+      this.onFinishHandler();
     }
   }
 
-  protected abstract needRedirect(): boolean;
+  protected formatRequestBodyAndHeader(body: V | object): [V, InputHeader] {
+    if (this.isStandardBody(body)) {
+      return [<V>body, this.modifyHeader(body)];
+    }
+    const contentType = this.param.getHeader('content-type');
+    let formated: string | V;
+    let header: InputHeader = {};
+    switch (contentType) {
+      case 'application/json':
+        formated = JSON.stringify(body);
+        break;
+      case 'application/x-www-form-urlencoded':
+        formated = stringify(body);
+        break;
+      case 'multipart/form-data':
+        [formated, header] = this.createUploadBody(body);
+        break;
+      default:
+        throw new Error(
+          'body是${this.bodyTypeMsg},或者content-type设置application/json,application/x-www-form-urlencoded,multipart/form-data实现默认转换',
+        );
+    }
+    return [formated, this.modifyHeader(header)];
+  }
+
+  protected needRedirect(): boolean {
+    return false;
+  }
+
   protected abstract redirect(): Promise<any>;
 
   protected abstract formatRequestBodyAndHeader(

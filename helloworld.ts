@@ -10,3 +10,15 @@ const co = new Controller({
 co.request(null).then(value => {
   console.log(value);
 });
+
+interface A {
+  readonly get: () => string;
+}
+class X implements A {
+  get() {
+    return 'zcs';
+  }
+}
+class B extends X {
+  get() {}
+}
