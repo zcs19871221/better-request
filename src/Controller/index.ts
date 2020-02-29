@@ -2,6 +2,7 @@ import { wait } from 'better-utils';
 import { FetcherInterface } from '../Fetcher';
 import Param from '../Param';
 import { InputHeader } from '../Param/Header';
+import { stringify } from '../Param/queryString';
 
 interface ErrorHook {
   (error: Error, header: InputHeader): void;
@@ -89,9 +90,16 @@ export default abstract class Controller<V> {
     }
   }
 
+  protected modifyHeader(_body: V): InputHeader {
+    return {};
+  }
+
+  protected abstract noNeedModify(body: V | object): boolean;
+  protected abstract createUploadBody(body: object): [V, InputHeader];
+
   protected formatRequestBodyAndHeader(body: V | object): [V, InputHeader] {
-    if (this.isStandardBody(body)) {
-      return [<V>body, this.modifyHeader(body)];
+    if (this.noNeedModify(body)) {
+      return [<V>body, this.modifyHeader(<V>body)];
     }
     const contentType = this.param.getHeader('content-type');
     let formated: string | V;
@@ -101,28 +109,25 @@ export default abstract class Controller<V> {
         formated = JSON.stringify(body);
         break;
       case 'application/x-www-form-urlencoded':
-        formated = stringify(body);
+        formated = stringify(<object>body);
         break;
       case 'multipart/form-data':
-        [formated, header] = this.createUploadBody(body);
+        [formated, header] = this.createUploadBody(<object>body);
         break;
       default:
         throw new Error(
-          'body是${this.bodyTypeMsg},或者content-type设置application/json,application/x-www-form-urlencoded,multipart/form-data实现默认转换',
+          `body需要string,buffer,formData类型,或者传入objectt但content-type设置application/json,application/x-www-form-urlencoded,multipart/form-data实现默认转换`,
         );
     }
-    return [formated, this.modifyHeader(header)];
+    return [<V>formated, { ...header, ...this.modifyHeader(<V>formated) }];
   }
 
   protected needRedirect(): boolean {
     return false;
   }
 
-  protected abstract redirect(): Promise<any>;
+  protected redirect() {}
 
-  protected abstract formatRequestBodyAndHeader(
-    body: V | object,
-  ): [V, InputHeader];
   protected abstract presetParse(response: any): Promise<any>;
   protected abstract replaceFetcher(): void;
 

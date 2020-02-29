@@ -6,7 +6,6 @@ import NodeFetcher from '../../Fetcher/node';
 import Controller, { ControllerOpt } from '../';
 import NodeParam, { NodeParamOpt } from '../../Param/node';
 import { InputHeader } from '../../Param/Header';
-import { stringify } from '../../Param/queryString';
 import extMapMime from './extMapMime';
 
 type NodeBody = string | Buffer | null;
@@ -65,6 +64,10 @@ export default class NodeController extends Controller<NodeBody> {
     this.parsers = parsers;
   }
 
+  protected noNeedModify(body: NodeBody): boolean {
+    return Buffer.isBuffer(body) || typeof body === 'string' || body === null;
+  }
+
   static fetch(
     opt: NodeControllerOpt & NodeParamOpt & { body?: NodeBody },
     body: NodeBody | object = null,
@@ -84,7 +87,7 @@ export default class NodeController extends Controller<NodeBody> {
     return String(res);
   }
 
-  private createUpLoadBody(opt: object): [string, string] {
+  protected createUploadBody(opt: object): [NodeBody, InputHeader] {
     const boundary = mockUuid();
     const block = Object.entries(opt).map(([name, target]) => {
       let fileName = '';
@@ -104,41 +107,17 @@ export default class NodeController extends Controller<NodeBody> {
         : '';
       return lineOne + file + '\r\n\r\n' + content;
     });
-    return [block.join('\r\n') + `\r\n--${boundary}--`, boundary];
+    return [
+      block.join('\r\n') + `\r\n--${boundary}--`,
+      { 'content-type': `multipart/form-data; boundary=${boundary}` },
+    ];
   }
 
-  protected formatRequestBodyAndHeader(
-    body: NodeBody | object,
-  ): [NodeBody, InputHeader] {
-    let formated: string | NodeBody;
+  protected modifyHeader(body: NodeBody): InputHeader {
     const header: InputHeader = {};
-    if (_isNodeBody(body)) {
-      formated = body;
-    } else {
-      const contentType = this.param.getHeader('content-type');
-      switch (contentType) {
-        case 'application/json':
-          formated = JSON.stringify(body);
-          break;
-        case 'application/x-www-form-urlencoded':
-          formated = stringify(body);
-          break;
-        case 'multipart/form-data':
-          {
-            const res = this.createUpLoadBody(body);
-            header['content-type'] = `multipart/form-data; boundary=${res[1]}`;
-            formated = res[0];
-          }
-          break;
-        default:
-          throw new Error(
-            'body是字符串或者Buffer，或者设置content-type实施默认转换',
-          );
-      }
-    }
     header['content-length'] =
-      formated === null ? '0' : String(Buffer.byteLength(formated));
-    return [formated, header];
+      body === null ? '0' : String(Buffer.byteLength(body));
+    return header;
   }
 
   protected needRedirect() {
