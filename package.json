@@ -24,9 +24,9 @@
   "author": "zcs",
   "license": "MIT",
   "dependencies": {
+    "@types/node": "^13.7.0",
     "better-utils": "2.1.0",
-    "iconv-lite": "^0.5.1",
-    "@types/node": "^13.7.0"
+    "iconv-lite": "^0.5.1"
   },
   "browser": "Controller/node/index.js",
   "main": "Controller/node/index.js",
