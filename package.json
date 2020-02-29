@@ -1,13 +1,14 @@
 {
   "name": "better-request",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "node http request client",
   "keywords": [
     "frontend",
     "node.js",
     "node",
     "httpclient",
-    "request"
+    "request",
+    "typescript"
   ],
   "repository": {
     "type": "git",
@@ -17,23 +18,23 @@
     "build": "tsc",
     "test": "node ./node_modules/jest/bin/jest.js",
     "watch": "tsc --watch",
-    "preversion": "npm run build",
-    "postversion": "cd dist && npm publish",
-    "postpublish": "node ../../bin/updateDepVersion.js",
-    "compile": "node ./__better-code__/bin/compile.js"
+    "preversion": "npm run test && node ./bin/clean.js && npm run build && npm run copy",
+    "postversion": "cd dist && npm publish"
   },
   "author": "zcs",
   "license": "MIT",
   "dependencies": {
     "better-utils": "2.1.0",
-    "iconv-lite": "^0.5.1"
+    "iconv-lite": "^0.5.1",
+    "@types/node": "^13.7.0"
   },
-  "browser": "src/Controller/node/index.js",
-  "main": "src/Controller/node/index.js",
+  "browser": "Controller/node/index.js",
+  "main": "Controller/node/index.js",
+  "types": "Controller/node/index.js",
   "devDependencies": {
     "@types/formidable": "^1.0.31",
     "@types/jest": "^25.1.2",
-    "@types/node": "^13.7.0",
+    "better-fs": "^10.0.8",
     "formidable": "^1.2.2",
     "jest": "^25.1.0",
     "prettier": "^1.19.1",
