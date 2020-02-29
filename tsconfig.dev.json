@@ -4,6 +4,7 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "dist",
+    "sourceMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "noUnusedLocals": true,
@@ -11,10 +12,11 @@
     "strict": true,
     "baseUrl": ".",
     "declaration": true,
+    "noEmit": true,
     "paths": {
       "Src/*": ["./src/*"]
     }
   },
   "exclude": ["**/*.test.ts"],
-  "include": ["src/**/*"]
+  "include": ["test/**/*", "src/**/*", "helloworld.ts"]
 }
