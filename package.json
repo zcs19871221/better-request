@@ -18,7 +18,7 @@
     "build": "tsc",
     "test": "node ./node_modules/jest/bin/jest.js",
     "watch": "tsc --watch",
-    "preversion": "npm run test && node ./bin/clean.js && npm run build && npm run copy",
+    "preversion": "npm run test && node ./bin/clean.js && npm run build && node ./bin/clean.js",
     "postversion": "cd dist && npm publish"
   },
   "author": "zcs",
