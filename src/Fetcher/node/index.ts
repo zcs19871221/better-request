@@ -28,6 +28,7 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     this.req = this.param.client().request(
       this.param.getUrl(),
       {
+        ...this.param.getOption(),
         agent: this.param.getAgent(),
         method: this.param.getMethod(),
         headers: {

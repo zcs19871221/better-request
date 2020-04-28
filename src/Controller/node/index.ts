@@ -41,6 +41,7 @@ export default class NodeController extends Controller<NodeBody> {
     header,
     timeout,
     agent,
+    option,
   }: NodeControllerOpt & NodeParamOpt) {
     super({
       retry,
@@ -59,6 +60,7 @@ export default class NodeController extends Controller<NodeBody> {
       header,
       timeout,
       agent,
+      option,
     });
     this.fetcher = new NodeFetcher(this.param);
     this.parsers = parsers;

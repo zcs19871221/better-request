@@ -7,25 +7,28 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "current file",
+      "name": "node",
       "program": "${file}",
       "skipFiles": ["<node_internals>/**"]
     },
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch Program",
-      "program": "${workspaceFolder}/helloworld.ts",
-      "preLaunchTask": {
-        "type": "typescript",
-        "tsconfig": "tsconfig.dev.json",
-        "problemMatcher": ["$tsc"],
-        "group": {
-          "kind": "build",
-          "isDefault": true
-        }
-      },
+      "name": "ts",
+      "program": "${file}",
+      "preLaunchTask": "compile",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "ts server",
+      "program": "${workspaceFolder}/src/index.ts",
+      "preLaunchTask": "compile",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "env": {
+        "NODE_ENV": "development"
+      }
     }
   ]
 }

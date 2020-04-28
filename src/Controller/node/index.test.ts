@@ -105,6 +105,14 @@ beforeAll(() => {
         }
         return;
       }
+      if (req.url && req.url.startsWith('/notMatch')) {
+        res.end('notMatch:' + req.url);
+        return;
+      }
+      if (req.url && req.url.startsWith('/overRideOption')) {
+        res.end('overRideOption:' + req.url);
+        return;
+      }
     })
     .listen(port);
 });
@@ -307,29 +315,38 @@ test('redirect exceed', async () => {
   }
   expect(catched.message).toBe('重定向超过3次');
 });
-test('conditon prest parser', async () => {
+// 用于参数中包含#,但又必须保留#号,不能encode的情况.这个情况实际是不对的,按道理都应该encodeURIComponent
+// 因为只用http.request(url)的话,参数中的#号之后的部分会认为是hash而丢弃.
+// 只有用http.request({path: '?q=1234'})才能正取传送
+test('option override', async () => {
   const co = new Controller({
-    url: `${domain}/presets`,
+    url: `${domain}/notMatch`,
+    search: {
+      q: '#abcd',
+    },
     method: 'GET',
     parsers: ['iconv', 'json'],
   });
   const res = await co.request(null);
-  expect(res).toEqual({ msg: '重定向' });
-  expect(co.fetcher.statusCode).toBe(302);
-
-  const co2 = new Controller({
-    url: `${domain}/presets`,
+  const co0 = new Controller({
+    url: `${domain}/notMatch?q=#abcd`,
     method: 'GET',
-    parsers: ['json'],
+    parsers: ['iconv', 'json'],
+  });
+  const res0 = await co0.request(null);
+  const co2 = new Controller({
+    url: `${domain}/notMatch`,
+    option: {
+      path: `/overRideOption?q=#abcd`,
+    },
+    search: {
+      a: '#abcde',
+    },
+    method: 'GET',
+    parsers: ['iconv', 'json'],
   });
   const res2 = await co2.request(null);
-  expect(res2).toEqual({ msg: '�ض���' });
-
-  const co3 = new Controller({
-    url: `${domain}/presets`,
-    method: 'GET',
-    parsers: ['iconv'],
-  });
-  const res3 = await co3.request(null);
-  expect(res3).toEqual(JSON.stringify({ msg: '重定向' }));
+  expect(res).toEqual('notMatch:/notMatch?q=%23abcd');
+  expect(res0).toEqual('notMatch:/notMatch?q=');
+  expect(res2).toEqual('overRideOption:/overRideOption?q=#abcd');
 });

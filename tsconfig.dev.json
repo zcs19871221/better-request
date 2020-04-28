@@ -10,13 +10,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "strict": true,
-    "baseUrl": ".",
-    "declaration": true,
-    "noEmit": true,
-    "paths": {
-      "Src/*": ["./src/*"]
-    }
+    "baseUrl": "./"
   },
-  "exclude": ["**/*.test.ts"],
-  "include": ["test/**/*", "src/**/*", "helloworld.ts"]
+  "exclude": ["**/*.test.ts", "dist"],
+  "include": ["src/**/*", "test/**/*"]
 }
