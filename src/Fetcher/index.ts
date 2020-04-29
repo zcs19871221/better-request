@@ -39,6 +39,7 @@ export default abstract class Fetcher<T> implements FetcherInterface {
   public statusCode: number = 0;
   public resHeader: Header = new Header();
   public param: Param;
+  public responseLen: number = 0;
   constructor(param: Param) {
     this.param = param;
     this.status = 'NOTSEND';

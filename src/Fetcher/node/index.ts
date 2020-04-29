@@ -45,6 +45,7 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
           len += chunk.length;
         });
         res.on('end', () => {
+          this.responseLen = len;
           if (this._next('SUCCESS')) {
             this.resolve(Buffer.concat(buf, len));
           }

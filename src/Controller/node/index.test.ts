@@ -346,6 +346,19 @@ test('option override', async () => {
     parsers: ['iconv', 'json'],
   });
   const res2 = await co2.request(null);
+  // const co3 = new Controller({
+  //   url: `${domain}/overRideOption`,
+  //   option: {
+  //     path: `?q=#abcd`,
+  //   },
+  //   search: {
+  //     a: '#abcde',
+  //   },
+  //   method: 'GET',
+  //   parsers: ['iconv', 'json'],
+  // });
+  // const res3 = await co3.request(null);
+  // console.log(res3);
   expect(res).toEqual('notMatch:/notMatch?q=%23abcd');
   expect(res0).toEqual('notMatch:/notMatch?q=');
   expect(res2).toEqual('overRideOption:/overRideOption?q=#abcd');
