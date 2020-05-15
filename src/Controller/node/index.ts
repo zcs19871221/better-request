@@ -71,8 +71,8 @@ export default class NodeController extends Controller<NodeBody> {
   }
 
   static fetch(
-    opt: NodeControllerOpt & NodeParamOpt & { body?: NodeBody },
-    body: NodeBody | object = null,
+    opt: NodeControllerOpt & NodeParamOpt,
+    body: NodeBody | object,
   ): Promise<any> {
     if (_isNodeBody(body)) {
       return new NodeController(opt).request(body);
