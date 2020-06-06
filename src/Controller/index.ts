@@ -21,17 +21,10 @@ interface ControllerOpt {
   readonly onError?: ErrorHook;
   readonly onFinish?: FinishHook;
   readonly statusFilter: RegExp;
-  readonly responseHandlers: ResponseHandler[] | ResponseHandler;
 }
-interface Controllerr<V> {
-  fetcher: FetcherInterface;
-  param: Param;
-  getStatusFilter(): RegExp;
-  fetch(body: V): Promise<any>;
-  fetch(body: object): Promise<any>;
-}
-export { ControllerOpt, Controllerr };
-export default abstract class Controller<V> implements Controllerr<V> {
+
+export { ControllerOpt };
+export default abstract class Controller<V> {
   public fetcher!: FetcherInterface;
   public param!: Param;
   private onError: ErrorHook | undefined;
@@ -41,7 +34,7 @@ export default abstract class Controller<V> implements Controllerr<V> {
   private errorRetry: number;
   private errorRetryInterval: number;
   private statusFilter: RegExp;
-  private responseHandlers: ResponseHandler[] | ResponseHandler;
+  protected responseHandlers: ResponseHandler[] = [];
 
   constructor({
     errorRetry,
@@ -50,7 +43,6 @@ export default abstract class Controller<V> implements Controllerr<V> {
     onSuccess,
     onError,
     onFinish,
-    responseHandlers,
   }: ControllerOpt) {
     this.onError = onError;
     this.onSuccess = onSuccess;
@@ -58,7 +50,6 @@ export default abstract class Controller<V> implements Controllerr<V> {
     this.errorRetry = errorRetry;
     this.errorRetryInterval = errorRetryInterval;
     this.statusFilter = statusFilter;
-    this.responseHandlers = responseHandlers;
   }
 
   getStatusFilter(): RegExp {
@@ -79,14 +70,32 @@ export default abstract class Controller<V> implements Controllerr<V> {
     }
   }
 
-  protected abstract isStandardBodyType(body: V | object): boolean;
-  protected abstract createUploadBody(body: object): [V, InputHeader];
-  protected abstract setDefaultParsers(): void;
-
-  protected formatBodyAndHeader(body: V | object): [V, InputHeader] {
-    if (this.isStandardBodyType(body)) {
-      return [<V>body, {}];
+  async ensureRequest(body: V | object): Promise<any> {
+    while (this.errorRetryTimes <= this.errorRetry) {
+      try {
+        const [formatedBody, overWriteHeader] = this.formatBodyAndHeader(body);
+        let response = await this.fetcher.send(formatedBody, overWriteHeader);
+        for (const responseHandler of this.responseHandlers) {
+          response = await responseHandler(response, this);
+        }
+        return response;
+      } catch (error) {
+        if (this.errorRetryTimes === this.errorRetry) {
+          throw error;
+        }
+        this.errorRetryTimes++;
+        this.fetcher = this.fetcher.clone();
+        await wait(this.errorRetryInterval);
+      }
     }
+  }
+
+  // protected abstract isStandardBodyType(body: V | object): boolean;
+  protected abstract createUploadBody(body: object): [V, InputHeader];
+  protected formatBodyAndHeader(body: V | object): [V, InputHeader] {
+    // if (this.isStandardBodyType(body)) {
+    //   return [<V>body, {}];
+    // }
     const contentType = this.param.getHeader('content-type');
     let formated: string | V;
     let header: InputHeader = {};
@@ -106,35 +115,6 @@ export default abstract class Controller<V> implements Controllerr<V> {
         );
     }
     return [<V>formated, header];
-  }
-
-  protected needRedirect(): boolean {
-    return false;
-  }
-
-  protected redirect() {}
-
-  protected async ensureRequest(body: V | object): Promise<any> {
-    while (this.errorRetryTimes <= this.errorRetry) {
-      try {
-        const [formatedBody, overWriteHeader] = this.formatBodyAndHeader(body);
-        let response = await this.fetcher.send(formatedBody, overWriteHeader);
-        if (!Array.isArray(this.responseHandlers)) {
-          this.responseHandlers = [this.responseHandlers];
-        }
-        for (const responseHandler of this.responseHandlers) {
-          response = await responseHandler(response, this);
-        }
-        return response;
-      } catch (error) {
-        if (this.errorRetryTimes === this.errorRetry) {
-          throw error;
-        }
-        this.errorRetryTimes++;
-        this.fetcher = this.fetcher.clone();
-        await wait(this.errorRetryInterval);
-      }
-    }
   }
 
   private onSuccessHandler(result: any) {

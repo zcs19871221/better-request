@@ -1,10 +1,12 @@
-import { Controllerr } from '.';
+import Controller from '.';
 
 interface ResponseHandler {
-  (response: any, controller: Controllerr<any>): any;
+  (response: any, controller: any): Promise<any>;
 }
-
-const statusCodeCheck: ResponseHandler = (response, controller): any => {
+const checkStatusCode: ResponseHandler = (
+  response: any,
+  controller: Controller<any>,
+): any => {
   const statusCode = controller.fetcher.statusCode;
   const statusFilter = controller.getStatusFilter();
   if (!statusFilter.test(String(statusCode))) {
@@ -15,4 +17,13 @@ const statusCodeCheck: ResponseHandler = (response, controller): any => {
   return response;
 };
 
-export { ResponseHandler, statusCodeCheck };
+const parseJson: ResponseHandler = (
+  response: any,
+  controller: Controller<any>,
+) => {
+  const contentType = controller.fetcher.getResHeader('content-type');
+  if (contentType.includes('application/json')) {
+    return JSON.parse(response);
+  }
+};
+export { ResponseHandler, checkStatusCode, parseJson };
