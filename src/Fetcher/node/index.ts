@@ -12,6 +12,10 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     this.req = null;
   }
 
+  clone() {
+    return new NodeFetcher(this.param);
+  }
+
   _setResHeader(res: any): this {
     this.resHeader = new Header(res.headers);
     return this;
@@ -20,6 +24,13 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
   _setStatusCode(res: any): this {
     this.statusCode = res.statusCode || 0;
     return this;
+  }
+
+  private addContentLength(body: string | Buffer): InputHeader {
+    const header: InputHeader = {};
+    header['content-length'] =
+      body === null ? '0' : String(Buffer.byteLength(body));
+    return header;
   }
 
   _send(body: string | Buffer | null, overWriteHeader: InputHeader = {}): this {
@@ -34,6 +45,7 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
         headers: {
           ...this.param.getHeader(),
           ...overWriteHeader,
+          ...(body !== null && this.addContentLength(body)),
         },
       },
       (res: IncomingMessage) => {

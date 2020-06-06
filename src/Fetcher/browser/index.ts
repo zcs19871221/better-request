@@ -22,6 +22,10 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     this.req = null;
   }
 
+  clone() {
+    return new BrowserFetcher(this.param);
+  }
+
   _setResHeader(res: XMLHttpRequest): this {
     this.resHeader = new Header(
       res

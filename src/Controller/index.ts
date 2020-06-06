@@ -3,6 +3,7 @@ import { FetcherInterface } from '../Fetcher';
 import Param from '../Param';
 import { InputHeader } from '../Param/Header';
 import { stringify } from '../Param/queryString';
+import { ResponseHandler } from './response_handlers';
 
 interface ErrorHook {
   (error: Error, header: InputHeader): void;
@@ -14,71 +15,59 @@ interface FinishHook {
   (header: InputHeader): void;
 }
 interface ControllerOpt {
-  readonly retry?: number;
-  readonly retryInterval?: number;
+  readonly errorRetry: number;
+  readonly errorRetryInterval: number;
   readonly onSuccess?: SuccessHook;
   readonly onError?: ErrorHook;
   readonly onFinish?: FinishHook;
-  readonly status?: RegExp;
-  readonly parser?: customParser | undefined;
+  readonly statusFilter: RegExp;
+  readonly responseHandlers: ResponseHandler[] | ResponseHandler;
 }
-
-interface customParser {
-  (response: any, header: InputHeader): any;
+interface Controllerr<V> {
+  fetcher: FetcherInterface;
+  param: Param;
+  getStatusFilter(): RegExp;
+  fetch(body: V): Promise<any>;
+  fetch(body: object): Promise<any>;
 }
-export { ControllerOpt };
-export default abstract class Controller<V> {
+export { ControllerOpt, Controllerr };
+export default abstract class Controller<V> implements Controllerr<V> {
   public fetcher!: FetcherInterface;
   public param!: Param;
   private onError: ErrorHook | undefined;
   private onSuccess: SuccessHook | undefined;
   private onFinish: FinishHook | undefined;
-  private retry: number;
-  private retryInterval: number;
-  private status: RegExp;
-  private parser: customParser | undefined;
+  private errorRetryTimes: number = 0;
+  private errorRetry: number;
+  private errorRetryInterval: number;
+  private statusFilter: RegExp;
+  private responseHandlers: ResponseHandler[] | ResponseHandler;
 
   constructor({
-    retry = 2,
-    retryInterval = 50,
-    status = /^[23]\d\d$/,
+    errorRetry,
+    errorRetryInterval,
+    statusFilter,
     onSuccess,
     onError,
     onFinish,
-    parser,
-  }: ControllerOpt = {}) {
+    responseHandlers,
+  }: ControllerOpt) {
     this.onError = onError;
     this.onSuccess = onSuccess;
     this.onFinish = onFinish;
-    this.retry = retry;
-    this.retryInterval = retryInterval;
-    this.status = status;
-    this.parser = parser;
+    this.errorRetry = errorRetry;
+    this.errorRetryInterval = errorRetryInterval;
+    this.statusFilter = statusFilter;
+    this.responseHandlers = responseHandlers;
   }
 
-  private onSuccessHandler(result: any) {
-    if (this.onSuccess) {
-      this.onSuccess(result, this.fetcher.getResHeader());
-    }
+  getStatusFilter(): RegExp {
+    return this.statusFilter;
   }
 
-  private onErrorHandler(error: Error) {
-    if (this.onError) {
-      this.onError(error, this.fetcher.getResHeader());
-    } else {
-      throw error;
-    }
-  }
-
-  private onFinishHandler() {
-    if (this.onFinish) {
-      this.onFinish(this.fetcher.getResHeader());
-    }
-  }
-
-  async request(body: V): Promise<any>;
-  async request(body: object): Promise<any>;
-  async request(body: V | object): Promise<any> {
+  async fetch(body: V): Promise<any>;
+  async fetch(body: object): Promise<any>;
+  async fetch(body: V | object): Promise<any> {
     try {
       const result = await this.ensureRequest(body);
       this.onSuccessHandler(result);
@@ -90,16 +79,13 @@ export default abstract class Controller<V> {
     }
   }
 
-  protected modifyHeader(_body: V): InputHeader {
-    return {};
-  }
-
-  protected abstract noNeedModify(body: V | object): boolean;
+  protected abstract isStandardBodyType(body: V | object): boolean;
   protected abstract createUploadBody(body: object): [V, InputHeader];
+  protected abstract setDefaultParsers(): void;
 
-  protected formatRequestBodyAndHeader(body: V | object): [V, InputHeader] {
-    if (this.noNeedModify(body)) {
-      return [<V>body, this.modifyHeader(<V>body)];
+  protected formatBodyAndHeader(body: V | object): [V, InputHeader] {
+    if (this.isStandardBodyType(body)) {
+      return [<V>body, {}];
     }
     const contentType = this.param.getHeader('content-type');
     let formated: string | V;
@@ -119,7 +105,7 @@ export default abstract class Controller<V> {
           `body需要string,buffer,formData类型,或者传入objectt但content-type设置application/json,application/x-www-form-urlencoded,multipart/form-data实现默认转换`,
         );
     }
-    return [<V>formated, { ...header, ...this.modifyHeader(<V>formated) }];
+    return [<V>formated, header];
   }
 
   protected needRedirect(): boolean {
@@ -128,41 +114,46 @@ export default abstract class Controller<V> {
 
   protected redirect() {}
 
-  protected abstract presetParse(response: any): Promise<any>;
-  protected abstract replaceFetcher(): void;
-
   protected async ensureRequest(body: V | object): Promise<any> {
-    for (let retryTimes = 0; retryTimes <= this.retry; retryTimes += 1) {
+    while (this.errorRetryTimes <= this.errorRetry) {
       try {
-        const [formatedBody, overWriteHeader] = this.formatRequestBodyAndHeader(
-          body,
-        );
-        const rawData = await this.fetcher.send(formatedBody, overWriteHeader);
-        this.statusCodeCheck();
-        if (this.needRedirect()) {
-          return this.redirect();
+        const [formatedBody, overWriteHeader] = this.formatBodyAndHeader(body);
+        let response = await this.fetcher.send(formatedBody, overWriteHeader);
+        if (!Array.isArray(this.responseHandlers)) {
+          this.responseHandlers = [this.responseHandlers];
         }
-        let result = await this.presetParse(rawData);
-        if (this.parser) {
-          result = await this.parser(result, this.fetcher.getResHeader());
+        for (const responseHandler of this.responseHandlers) {
+          response = await responseHandler(response, this);
         }
-        return result;
+        return response;
       } catch (error) {
-        if (retryTimes === this.retry) {
+        if (this.errorRetryTimes === this.errorRetry) {
           throw error;
         }
-        this.replaceFetcher();
-        await wait(this.retryInterval);
+        this.errorRetryTimes++;
+        this.fetcher = this.fetcher.clone();
+        await wait(this.errorRetryInterval);
       }
     }
   }
 
-  private statusCodeCheck() {
-    const statusCode = this.fetcher.statusCode;
-    if (!this.status.test(String(statusCode))) {
-      throw new Error(
-        `status code ${this.fetcher.statusCode} not match regExp ${this.status.source}`,
-      );
+  private onSuccessHandler(result: any) {
+    if (this.onSuccess) {
+      this.onSuccess(result, this.fetcher.getResHeader());
+    }
+  }
+
+  private onErrorHandler(error: Error) {
+    if (this.onError) {
+      this.onError(error, this.fetcher.getResHeader());
+    } else {
+      throw error;
+    }
+  }
+
+  private onFinishHandler() {
+    if (this.onFinish) {
+      this.onFinish(this.fetcher.getResHeader());
     }
   }
 }

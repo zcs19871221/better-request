@@ -7,13 +7,12 @@ import Controller, { ControllerOpt } from '../';
 import NodeParam, { NodeParamOpt } from '../../Param/node';
 import { InputHeader } from '../../Param/Header';
 import extMapMime from './extMapMime';
+import iconvParser from './iconv_parser';
 
 type NodeBody = string | Buffer | null;
-type Redirect = ['redirect', number];
 
-type Parser = Redirect | 'iconv' | 'json';
 declare interface NodeControllerOpt extends ControllerOpt {
-  readonly parsers?: Parser[];
+  readonly maxRedirect: number;
 }
 
 function _isNodeBody(body: NodeBody | object): body is NodeBody {
@@ -22,26 +21,19 @@ function _isNodeBody(body: NodeBody | object): body is NodeBody {
 
 export default class NodeController extends Controller<NodeBody> {
   private rediectTimes: number = 0;
-  private parsers: Parser[] = [];
+  private readonly maxRedirect: number;
   public fetcher: NodeFetcher;
   public param: NodeParam;
   constructor({
+    maxRedirect = 5,
     retry = 2,
     retryInterval = 50,
-    parsers = [['redirect', 10], 'iconv', 'json'],
-    parser,
+    parsers = [iconvParser],
     onSuccess,
     onError,
-    status,
+    status = /^[23]\d\d$/,
     onFinish,
-    url,
-    path,
-    search,
-    method,
-    header,
-    timeout,
-    agent,
-    option,
+    ...rest
   }: NodeControllerOpt & NodeParamOpt) {
     super({
       retry,
@@ -50,23 +42,16 @@ export default class NodeController extends Controller<NodeBody> {
       onError,
       onFinish,
       status,
-      parser,
+      parsers,
     });
-    this.param = new NodeParam({
-      url,
-      path,
-      search,
-      method,
-      header,
-      timeout,
-      agent,
-      option,
-    });
+    this.param = new NodeParam(rest);
     this.fetcher = new NodeFetcher(this.param);
-    this.parsers = parsers;
+    this.maxRedirect = maxRedirect;
   }
 
-  protected noNeedModify(body: NodeBody): boolean {
+  setDefaultParsers() {}
+
+  static isStandardBodyType(body: NodeBody): boolean {
     return Buffer.isBuffer(body) || typeof body === 'string' || body === null;
   }
 
@@ -75,9 +60,9 @@ export default class NodeController extends Controller<NodeBody> {
     body: NodeBody | object,
   ): Promise<any> {
     if (_isNodeBody(body)) {
-      return new NodeController(opt).request(body);
+      return new NodeController(opt).fetch(body);
     }
-    return new NodeController(opt).request(body);
+    return new NodeController(opt).fetch(body);
   }
 
   private iconv(res: Buffer, contentType: string): string | Buffer {
@@ -111,30 +96,22 @@ export default class NodeController extends Controller<NodeBody> {
     });
     return [
       block.join('\r\n') + `\r\n--${boundary}--`,
-      { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
     ];
   }
 
-  protected modifyHeader(body: NodeBody): InputHeader {
-    const header: InputHeader = {};
-    header['content-length'] =
-      body === null ? '0' : String(Buffer.byteLength(body));
-    return header;
-  }
-
   protected needRedirect() {
-    const redirectOpt = this.parsers.find(
-      each => Array.isArray(each) && each[0] === 'redirect',
-    );
     if (
-      redirectOpt &&
       this.fetcher.is3xx() &&
-      this.fetcher.getResHeader('location')
+      this.fetcher.getResHeader('location') &&
+      this.maxRedirect > 0
     ) {
-      if (this.rediectTimes < redirectOpt[1]) {
+      if (this.rediectTimes < this.maxRedirect) {
         return true;
       } else {
-        throw new Error(`重定向超过${redirectOpt[1]}次`);
+        throw new Error(`重定向超过${this.maxRedirect}次`);
       }
     }
     return false;
