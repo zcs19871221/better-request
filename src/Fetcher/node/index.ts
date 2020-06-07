@@ -21,16 +21,6 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     return new NodeFetcher(this.param);
   }
 
-  _setResHeader(res: any): this {
-    this.resHeader = new Header(res.headers);
-    return this;
-  }
-
-  _setStatusCode(res: any): this {
-    this.statusCode = res.statusCode || 0;
-    return this;
-  }
-
   _send(body: string | Buffer | null, overWriteHeader: InputHeader = {}): this {
     let len = 0;
     const buf: Buffer[] = [];
@@ -46,8 +36,8 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
         },
       },
       (res: IncomingMessage) => {
-        this._setResHeader(res);
-        this._setStatusCode(res);
+        this.setResHeader(new Header(<any>res.headers));
+        this.statusCode = res.statusCode || 0;
         res.on('data', (chunk: Buffer) => {
           this._clearTimeout();
           buf.push(chunk);

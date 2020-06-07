@@ -138,9 +138,11 @@ export default abstract class Fetcher<T> implements FetcherInterface {
 
   protected abstract _send(body: T | null, overWriteHeader: InputHeader): this;
   protected abstract _abort(): this;
-  protected abstract _setResHeader(res: any): this;
-  protected abstract _setStatusCode(res: any): this;
   protected abstract instanceBodyHandler(): BodyHandler<T>;
+
+  protected setResHeader(header: Header) {
+    this.resHeader = header;
+  }
 
   private _prepareSend(): void {
     if (!this._next('SENDING')) {

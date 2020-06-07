@@ -46,11 +46,6 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     return this;
   }
 
-  _setStatusCode(res: XMLHttpRequest): this {
-    this.statusCode = res.status;
-    return this;
-  }
-
   _send(body: BrowserBody | null, overwriteHeader: InputHeader = {}): this {
     const xhr = new XMLHttpRequest();
     this.req = xhr;
@@ -60,6 +55,30 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
         xhr.setRequestHeader(key, value);
       },
     );
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+        console.log(xhr.responseText);
+      }
+    };
+    xhr.addEventListener('readystatechange', () => {
+      if (xhr.readyState === 2) {
+        this.statusCode = xhr.status;
+        this.setResHeader(
+          new Header(
+            xhr
+              .getAllResponseHeaders()
+              .split('\r\n')
+              .reduce((acc, each) => {
+                const [key, value] = each.split(': ');
+                if (key) {
+                  acc[key.toLowerCase()] = value;
+                }
+                return acc;
+              }, <any>{}),
+          ),
+        );
+      }
+    });
     xhr.addEventListener('load', () => {
       if (this._next('SUCCESS')) {
         this.resolve(this.req && this.req.response);
