@@ -1,6 +1,7 @@
 import Fetcher from '..';
 import BrowserParam from '../../Param/browser';
 import Header, { InputHeader } from '../../Param/Header';
+import BodyHandler from './body_handler';
 
 type BrowserBody =
   | string
@@ -22,6 +23,9 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     this.req = null;
   }
 
+  protected instanceBodyHandler() {
+    return new BodyHandler(this);
+  }
   clone() {
     return new BrowserFetcher(this.param);
   }

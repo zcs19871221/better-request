@@ -1,5 +1,6 @@
 import Param from '../Param';
 import Header, { InputHeader } from '../Param/Header';
+import BodyHandler from './body_handler';
 
 enum statusEnum {
   NOTSEND,
@@ -23,7 +24,7 @@ interface FetcherInterface {
   is3xx(): boolean;
   is4xx(): boolean;
   is5xx(): boolean;
-  send(body?: any, overWriteHeader?: InputHeader): any;
+  send(body?: any): any;
   getResHeader(key: string): string;
   getResHeader(key: string[]): string[];
   getResHeader(): InputHeader;
@@ -110,9 +111,15 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return this._codeEqual(5);
   }
 
-  send(body: T | null = null, overWriteHeader: InputHeader = {}): Promise<any> {
+  send(body: T | null = null): Promise<any> {
     this._prepareSend();
-    this._send(body, overWriteHeader);
+    if (body !== null) {
+      const bodyHandler = this.instanceBodyHandler();
+      const [formatedBody, overWriteHeader] = bodyHandler.format(body);
+      this._send(formatedBody, overWriteHeader);
+    } else {
+      this._send(body, {});
+    }
     return this.thread;
   }
 
@@ -129,12 +136,13 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return this.resHeader.gets(key);
   }
 
-  abstract _send(body: T | null, overWriteHeader: InputHeader): this;
-  abstract _abort(): this;
-  abstract _setResHeader(res: any): this;
-  abstract _setStatusCode(res: any): this;
+  protected abstract _send(body: T | null, overWriteHeader: InputHeader): this;
+  protected abstract _abort(): this;
+  protected abstract _setResHeader(res: any): this;
+  protected abstract _setStatusCode(res: any): this;
+  protected abstract instanceBodyHandler(): BodyHandler<T>;
 
-  _prepareSend(): void {
+  private _prepareSend(): void {
     if (!this._next('SENDING')) {
       throw new Error('fetcher不能重复使用');
     }
@@ -144,20 +152,20 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     }
   }
 
-  _onTimeout(): void {
+  private _onTimeout(): void {
     if (this._next('TIMEOUT')) {
       this.reject(new Error(`请求超时 ${this.param.getTimeout()}ms`));
     }
   }
 
-  _codeEqual(scope: 1 | 2 | 3 | 4 | 5) {
+  private _codeEqual(scope: 1 | 2 | 3 | 4 | 5) {
     if (this.statusCode >= scope * 100 && this.statusCode < scope * 100 + 100) {
       return true;
     }
     return false;
   }
 
-  _next(status: keyof typeof statusEnum): boolean {
+  protected _next(status: keyof typeof statusEnum): boolean {
     const src = Fetcher.order.findIndex(config =>
       config.includes(statusEnum[this.status]),
     );
@@ -174,7 +182,7 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return false;
   }
 
-  _clearTimeout(): this {
+  protected _clearTimeout(): this {
     if (this.timer) {
       clearTimeout(this.timer);
     }

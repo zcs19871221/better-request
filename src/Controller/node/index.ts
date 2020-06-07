@@ -1,18 +1,13 @@
-import fs from 'fs';
-import path from 'path';
 import decodeResponse from './decodeResponse';
 import redirect from './redirect';
-import { mockUuid } from 'better-utils';
 import NodeFetcher from '../../Fetcher/node';
 import Controller, { ControllerOpt } from '../';
 import NodeParam, { NodeParamOpt } from '../../Param/node';
-import { InputHeader } from '../../Param/Header';
 import {
   ResponseHandler,
   checkStatusCode,
   parseJson,
 } from '../response_handlers';
-import extMapMime from './extMapMime';
 
 type NodeBody = string | Buffer | null;
 type Handler = keyof typeof ResponseHandlerName | ResponseHandler;
@@ -31,7 +26,6 @@ enum ResponseHandlerName {
   'decode',
   'json',
 }
-
 export default class NodeController extends Controller<NodeBody> {
   private rediectTimes: number = 0;
   private readonly maxRedirect: number;
@@ -104,33 +98,5 @@ export default class NodeController extends Controller<NodeBody> {
           return handler;
       }
     });
-  }
-
-  protected createUploadBody(opt: object): [NodeBody, InputHeader] {
-    const boundary = mockUuid();
-    const block = Object.entries(opt).map(([name, target]) => {
-      let fileName = '';
-      let content = '';
-      let contentType = '';
-      if (fs.existsSync(target)) {
-        fileName = path.basename(target);
-        contentType =
-          extMapMime[path.extname(target)] || 'application/octet-stream';
-        content = fs.readFileSync(target, 'utf-8');
-      } else {
-        content = target;
-      }
-      const lineOne = `--${boundary}\r\nContent-Disposition: form-data; name="${name}"`;
-      const file = fileName
-        ? `; fileName="${fileName}"\r\nContent-Type: ${contentType}`
-        : '';
-      return lineOne + file + '\r\n\r\n' + content;
-    });
-    return [
-      block.join('\r\n') + `\r\n--${boundary}--`,
-      {
-        'content-type': `multipart/form-data; boundary=${boundary}`,
-      },
-    ];
   }
 }

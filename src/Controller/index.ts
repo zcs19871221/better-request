@@ -2,7 +2,6 @@ import { wait } from 'better-utils';
 import { FetcherInterface } from '../Fetcher';
 import Param from '../Param';
 import { InputHeader } from '../Param/Header';
-import { stringify } from '../Param/queryString';
 import { ResponseHandler } from './response_handlers';
 
 interface ErrorHook {
@@ -73,8 +72,7 @@ export default abstract class Controller<V> {
   async ensureRequest(body: V | object): Promise<any> {
     while (this.errorRetryTimes <= this.errorRetry) {
       try {
-        const [formatedBody, overWriteHeader] = this.formatBodyAndHeader(body);
-        let response = await this.fetcher.send(formatedBody, overWriteHeader);
+        let response = await this.fetcher.send(body);
         for (const responseHandler of this.responseHandlers) {
           response = await responseHandler(response, this);
         }
@@ -88,33 +86,6 @@ export default abstract class Controller<V> {
         await wait(this.errorRetryInterval);
       }
     }
-  }
-
-  // protected abstract isStandardBodyType(body: V | object): boolean;
-  protected abstract createUploadBody(body: object): [V, InputHeader];
-  protected formatBodyAndHeader(body: V | object): [V, InputHeader] {
-    // if (this.isStandardBodyType(body)) {
-    //   return [<V>body, {}];
-    // }
-    const contentType = this.param.getHeader('content-type');
-    let formated: string | V;
-    let header: InputHeader = {};
-    switch (contentType) {
-      case 'application/json':
-        formated = JSON.stringify(body);
-        break;
-      case 'application/x-www-form-urlencoded':
-        formated = stringify(<object>body);
-        break;
-      case 'multipart/form-data':
-        [formated, header] = this.createUploadBody(<object>body);
-        break;
-      default:
-        throw new Error(
-          `body需要string,buffer,formData类型,或者传入objectt但content-type设置application/json,application/x-www-form-urlencoded,multipart/form-data实现默认转换`,
-        );
-    }
-    return [<V>formated, header];
   }
 
   private onSuccessHandler(result: any) {

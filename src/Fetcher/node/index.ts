@@ -1,5 +1,6 @@
 import { IncomingMessage } from 'http';
 import Fetcher from '..';
+import NodeBodyHandler from './body_handler';
 import NodeParam from '../../Param/node';
 import Header, { InputHeader } from '../../Param/Header';
 
@@ -10,6 +11,10 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     super(param);
     this.param = param;
     this.req = null;
+  }
+
+  protected instanceBodyHandler() {
+    return new NodeBodyHandler(this);
   }
 
   clone() {
@@ -26,13 +31,6 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     return this;
   }
 
-  private addContentLength(body: string | Buffer): InputHeader {
-    const header: InputHeader = {};
-    header['content-length'] =
-      body === null ? '0' : String(Buffer.byteLength(body));
-    return header;
-  }
-
   _send(body: string | Buffer | null, overWriteHeader: InputHeader = {}): this {
     let len = 0;
     const buf: Buffer[] = [];
@@ -45,7 +43,6 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
         headers: {
           ...this.param.getHeader(),
           ...overWriteHeader,
-          ...(body !== null && this.addContentLength(body)),
         },
       },
       (res: IncomingMessage) => {
