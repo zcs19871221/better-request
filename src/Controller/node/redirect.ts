@@ -1,4 +1,3 @@
-import iconvLite from 'iconv-lite';
 import { ResponseHandler } from '../response_handlers';
 import NodeFetcher from '../../Fetcher/node';
 import NodeParam from '../../Param/node';

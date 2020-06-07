@@ -1,19 +1,13 @@
-import http from 'http';
+import path from 'path';
+import fs from 'fs';
 import Request from '../src/Controller/node';
-http
-  .createServer((req, res) => {
-    console.log(req.url);
-    res.end('');
-  })
-  .listen(8888);
-Request.fetch({
-  url: `http://localhost:8888/abcdef?q=${encodeURI('#1234')}&f=2345`,
+
+const re = new Request({
+  url: 'https://www.baidu.com',
   method: 'GET',
 });
-Request.fetch({
-  url: `http://localhost:8888/abcdef?q=${encodeURI('#1234')}&f=2345`,
-  option: {
-    path: `/abcdef?q=${encodeURI('#1234')}&f=2345`,
+re.pipe(null, fs.createWriteStream(path.join(__dirname, 'baidu.html'))).catch(
+  error => {
+    console.error(error);
   },
-  method: 'GET',
-});
+);

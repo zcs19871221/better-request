@@ -8,16 +8,17 @@ import {
   checkStatusCode,
   parseJson,
 } from '../response_handlers';
+import { Readable, Writable } from 'stream';
 
-type NodeBody = string | Buffer | null;
+type NodeBody = string | Buffer | null | Readable;
 type Handler = keyof typeof ResponseHandlerName | ResponseHandler;
-declare interface NodeControllerOpt extends ControllerOpt {
+type Partial<T> = {
+  [P in keyof T]?: T[P];
+};
+
+declare interface NodeControllerOpt extends Partial<ControllerOpt> {
   readonly maxRedirect?: number;
   responseHandlers?: Handler | Handler[];
-}
-
-function _isNodeBody(body: NodeBody | object): body is NodeBody {
-  return Buffer.isBuffer(body) || typeof body === 'string' || body === null;
 }
 
 enum ResponseHandlerName {
@@ -72,10 +73,11 @@ export default class NodeController extends Controller<NodeBody> {
     opt: NodeControllerOpt & NodeParamOpt,
     body: NodeBody | object,
   ): Promise<any> {
-    if (_isNodeBody(body)) {
-      return new NodeController(opt).fetch(body);
-    }
-    return new NodeController(opt).fetch(body);
+    return new NodeController(opt).fetch(<any>body);
+  }
+
+  pipe(body: NodeBody | object, dest: Writable): Promise<any> {
+    return this.fetcher.pipe(body, dest);
   }
 
   private standardResponseHandler(

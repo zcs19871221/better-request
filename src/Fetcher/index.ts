@@ -13,7 +13,6 @@ enum statusEnum {
 
 interface FetcherInterface {
   statusCode: number;
-  resHeader: Header;
   param: Param;
   abort(): this;
   isAborted(): boolean;
@@ -39,19 +38,18 @@ export default abstract class Fetcher<T> implements FetcherInterface {
   protected reject: Function = () => {};
   protected timer: NodeJS.Timeout | null = null;
   public statusCode: number = 0;
-  public resHeader: Header = new Header();
+  protected resHeader: Header = new Header();
   public param: Param;
-  public responseLen: number = 0;
   constructor(param: Param) {
     this.param = param;
     this.status = 'NOTSEND';
     this.thread = new Promise((resolve, reject) => {
       this.resolve = (res: string | Buffer | object) => {
-        this._clearTimeout();
+        this.doClearTimeout();
         resolve(res);
       };
       this.reject = (error: Error) => {
-        this._abort()._clearTimeout();
+        this.doAbort().doClearTimeout();
         reject(error);
       };
     });
@@ -73,8 +71,8 @@ export default abstract class Fetcher<T> implements FetcherInterface {
 
   abstract clone(): FetcherInterface;
   abort(): this {
-    if (this._next('ABORTED')) {
-      this._abort().resolve(null);
+    if (this.moveNextStatus('ABORTED')) {
+      this.doAbort().resolve(null);
     }
     return this;
   }
@@ -96,30 +94,24 @@ export default abstract class Fetcher<T> implements FetcherInterface {
   }
 
   is2xx(): boolean {
-    return this._codeEqual(2);
+    return this.codeEqual(2);
   }
 
   is3xx(): boolean {
-    return this._codeEqual(3);
+    return this.codeEqual(3);
   }
 
   is4xx(): boolean {
-    return this._codeEqual(4);
+    return this.codeEqual(4);
   }
 
   is5xx(): boolean {
-    return this._codeEqual(5);
+    return this.codeEqual(5);
   }
 
-  send(body: T | null = null): Promise<any> {
-    this._prepareSend();
-    if (body !== null) {
-      const bodyHandler = this.instanceBodyHandler();
-      const [formatedBody, overWriteHeader] = bodyHandler.format(body);
-      this._send(formatedBody, overWriteHeader);
-    } else {
-      this._send(body, {});
-    }
+  send(body: T | null | object = null): Promise<any> {
+    const [formatedBody, overWriteHeader] = this.prepareSend(body);
+    this.doSend(formatedBody, overWriteHeader);
     return this.thread;
   }
 
@@ -136,38 +128,45 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return this.resHeader.gets(key);
   }
 
-  protected abstract _send(body: T | null, overWriteHeader: InputHeader): this;
-  protected abstract _abort(): this;
+  protected abstract doSend(body: T | null, overWriteHeader: InputHeader): this;
+  protected abstract doAbort(): this;
   protected abstract instanceBodyHandler(): BodyHandler<T>;
 
   protected setResHeader(header: Header) {
     this.resHeader = header;
   }
 
-  private _prepareSend(): void {
-    if (!this._next('SENDING')) {
+  protected prepareSend(body: T | null | object): [T | null, InputHeader] {
+    if (!this.moveNextStatus('SENDING')) {
       throw new Error('fetcher不能重复使用');
     }
     if (this.param.getTimeout() > 0) {
-      this._onTimeout = this._onTimeout.bind(this);
-      this.timer = setTimeout(this._onTimeout, this.param.getTimeout());
+      this.onTimeout = this.onTimeout.bind(this);
+      this.timer = setTimeout(this.onTimeout, this.param.getTimeout());
+    }
+
+    if (body !== null) {
+      const bodyHandler = this.instanceBodyHandler();
+      return bodyHandler.format(body);
+    } else {
+      return [body, {}];
     }
   }
 
-  private _onTimeout(): void {
-    if (this._next('TIMEOUT')) {
+  private onTimeout(): void {
+    if (this.moveNextStatus('TIMEOUT')) {
       this.reject(new Error(`请求超时 ${this.param.getTimeout()}ms`));
     }
   }
 
-  private _codeEqual(scope: 1 | 2 | 3 | 4 | 5) {
+  private codeEqual(scope: 1 | 2 | 3 | 4 | 5) {
     if (this.statusCode >= scope * 100 && this.statusCode < scope * 100 + 100) {
       return true;
     }
     return false;
   }
 
-  protected _next(status: keyof typeof statusEnum): boolean {
+  protected moveNextStatus(status: keyof typeof statusEnum): boolean {
     const src = Fetcher.order.findIndex(config =>
       config.includes(statusEnum[this.status]),
     );
@@ -184,7 +183,7 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     return false;
   }
 
-  protected _clearTimeout(): this {
+  protected doClearTimeout(): this {
     if (this.timer) {
       clearTimeout(this.timer);
     }

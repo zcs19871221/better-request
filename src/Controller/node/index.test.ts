@@ -128,18 +128,18 @@ test('error retry', async () => {
   const co = new Controller({
     url: `${domain}/errorRetry`,
     method: 'GET',
-    retry: 2,
+    errorRetry: 2,
     timeout: 100,
-    retryInterval: 0,
+    errorRetryInterval: 0,
   });
-  const res = await co.request(null);
+  const res = await co.fetch(null);
   expect(res).toBe('success at:3');
 });
 test('parse error retry', async () => {
   let index = 0;
   const co = new Controller({
     url: `${domain}/success`,
-    parser: () => {
+    responseHandlers: () => {
       if (index < 2) {
         index += 1;
         throw new Error('fucked');
@@ -147,11 +147,11 @@ test('parse error retry', async () => {
       return 'parser return success at ' + index;
     },
     method: 'GET',
-    retry: 2,
+    errorRetry: 2,
     timeout: 100,
-    retryInterval: 0,
+    errorRetryInterval: 0,
   });
-  const res = await co.request(null);
+  const res = await co.fetch(null);
   expect(res).toBe('parser return success at 2');
 });
 
@@ -170,7 +170,7 @@ test('success & finish hooks', async () => {
       mesg.push('finish');
     },
   });
-  await co.request(null);
+  await co.fetch(null);
   expect(mesg[0]).toBe('success-tmp');
   expect(mesg[1]).toBe('finish');
 });
@@ -187,7 +187,7 @@ test('error hooks', async () => {
       mesg.push('finish');
     },
   });
-  await co.request(null);
+  await co.fetch(null);
   expect(mesg[0] instanceof Error).toBe(true);
   expect(mesg[1]).toBe('error');
   expect(mesg[2]).toBe('finish');
@@ -197,18 +197,18 @@ test('string body', async () => {
   const co = new Controller({
     url: `${domain}/body`,
     method: 'POST',
-    parsers: [],
+    responseHandlers: [],
   });
-  const res = await co.request('i am body');
+  const res = await co.fetch('i am body');
   expect(String(res)).toBe('i am body');
 });
 test('Buffer body', async () => {
   const co = new Controller({
     url: `${domain}/body`,
     method: 'POST',
-    parsers: [],
+    responseHandlers: [],
   });
-  const res = await co.request(Buffer.from('buffer body'));
+  const res = await co.fetch(Buffer.from('buffer body'));
   expect(String(res)).toBe('buffer body');
 });
 test('json body', async () => {
@@ -218,9 +218,9 @@ test('json body', async () => {
       'content-type': 'application/json',
     },
     method: 'POST',
-    parsers: [],
+    responseHandlers: [],
   });
-  const res = await co.request({ name: 'zcs' });
+  const res = await co.fetch({ name: 'zcs' });
   expect(String(res)).toBe(JSON.stringify({ name: 'zcs' }));
 });
 test('urlencode body', async () => {
@@ -230,9 +230,9 @@ test('urlencode body', async () => {
       'content-type': 'application/x-www-form-urlencoded',
     },
     method: 'POST',
-    parsers: [],
+    responseHandlers: [],
   });
-  const res = await co.request({ name: 'zcs', gender: 'man' });
+  const res = await co.fetch({ name: 'zcs', gender: 'man' });
   expect(String(res)).toBe(JSON.stringify({ name: 'zcs', gender: 'man' }));
 });
 test('upload file body', async () => {
@@ -242,10 +242,10 @@ test('upload file body', async () => {
       'content-type': 'multipart/form-data',
     },
     method: 'POST',
-    parsers: [],
+    responseHandlers: [],
   });
   const targetFile = path.join(__dirname, '../../../.gitignore');
-  const res = await co.request({
+  const res = await co.fetch({
     file: targetFile,
     title: 'upload',
   });
@@ -260,7 +260,7 @@ test('upload file body', async () => {
 test('status filter', async () => {
   const co = new Controller({
     url: `${domain}/error`,
-    status: /404/,
+    statusFilter: /404/,
     method: 'GET',
   });
   let hasError = null;
@@ -268,7 +268,7 @@ test('status filter', async () => {
   } catch (error) {
     hasError = error;
   }
-  await co.request(null);
+  await co.fetch(null);
   expect(co.fetcher.statusCode).toBe(404);
   expect(hasError).toBe(null);
   const co2 = new Controller({
@@ -277,7 +277,7 @@ test('status filter', async () => {
   });
   let mayError = null;
   try {
-    await co2.request(null);
+    await co2.fetch(null);
   } catch (error) {
     mayError = error;
   }
@@ -288,12 +288,17 @@ test('preset parsers and custom parser', async () => {
   const co = new Controller({
     url: `${domain}/presets`,
     method: 'GET',
-    parsers: [['redirect', 10], 'iconv', 'json'],
-    parser: (response, header) => {
-      return `body:${response.name} header:${header['content-type']}`;
-    },
+    responseHandlers: [
+      'redirect',
+      'decode',
+      'json',
+      (response, controller: string) => {
+        const type = controller;
+        // return `body:${response.name} header:${header['content-type']}`;
+      },
+    ],
   });
-  const res = await co.request(null);
+  const res = await co.fetch(null);
   expect(res).toBe(
     'body:张成思,redirect:5 header:application/json; charset=GBK',
   );
@@ -309,15 +314,15 @@ test('redirect exceed', async () => {
   });
   let catched = null;
   try {
-    await co.request(null);
+    await co.fetch(null);
   } catch (error) {
     catched = error;
   }
   expect(catched.message).toBe('重定向超过3次');
 });
 // 用于参数中包含#,但又必须保留#号,不能encode的情况.这个情况实际是不对的,按道理都应该encodeURIComponent
-// 因为只用http.request(url)的话,参数中的#号之后的部分会认为是hash而丢弃.
-// 只有用http.request({path: '?q=1234'})才能正取传送
+// 因为只用http.fetch(url)的话,参数中的#号之后的部分会认为是hash而丢弃.
+// 只有用http.fetch({path: '?q=1234'})才能正取传送
 test('option override', async () => {
   const co = new Controller({
     url: `${domain}/notMatch`,
@@ -327,13 +332,13 @@ test('option override', async () => {
     method: 'GET',
     parsers: ['iconv', 'json'],
   });
-  const res = await co.request(null);
+  const res = await co.fetch(null);
   const co0 = new Controller({
     url: `${domain}/notMatch?q=#abcd`,
     method: 'GET',
     parsers: ['iconv', 'json'],
   });
-  const res0 = await co0.request(null);
+  const res0 = await co0.fetch(null);
   const co2 = new Controller({
     url: `${domain}/notMatch`,
     option: {
@@ -345,7 +350,7 @@ test('option override', async () => {
     method: 'GET',
     parsers: ['iconv', 'json'],
   });
-  const res2 = await co2.request(null);
+  const res2 = await co2.fetch(null);
   // const co3 = new Controller({
   //   url: `${domain}/overRideOption`,
   //   option: {
@@ -357,7 +362,7 @@ test('option override', async () => {
   //   method: 'GET',
   //   parsers: ['iconv', 'json'],
   // });
-  // const res3 = await co3.request(null);
+  // const res3 = await co3.fetch(null);
   // console.log(res3);
   expect(res).toEqual('notMatch:/notMatch?q=%23abcd');
   expect(res0).toEqual('notMatch:/notMatch?q=');

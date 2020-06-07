@@ -30,23 +30,7 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     return new BrowserFetcher(this.param);
   }
 
-  _setResHeader(res: XMLHttpRequest): this {
-    this.resHeader = new Header(
-      res
-        .getAllResponseHeaders()
-        .split('\r\n')
-        .reduce((acc, each) => {
-          const [key, value] = each.split(': ');
-          if (key) {
-            acc[key.toLowerCase()] = value;
-          }
-          return acc;
-        }, <any>{}),
-    );
-    return this;
-  }
-
-  _send(body: BrowserBody | null, overwriteHeader: InputHeader = {}): this {
+  doSend(body: BrowserBody | null, overwriteHeader: InputHeader = {}): this {
     const xhr = new XMLHttpRequest();
     this.req = xhr;
     xhr.open(this.param.getMethod(), String(this.param.getUrl()));
@@ -55,11 +39,6 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
         xhr.setRequestHeader(key, value);
       },
     );
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-        console.log(xhr.responseText);
-      }
-    };
     xhr.addEventListener('readystatechange', () => {
       if (xhr.readyState === 2) {
         this.statusCode = xhr.status;
@@ -80,12 +59,12 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
       }
     });
     xhr.addEventListener('load', () => {
-      if (this._next('SUCCESS')) {
+      if (this.moveNextStatus('SUCCESS')) {
         this.resolve(this.req && this.req.response);
       }
     });
     xhr.addEventListener('error', () => {
-      if (this._next('ERROR')) {
+      if (this.moveNextStatus('ERROR')) {
         this.reject(new Error('网络错误'));
       }
     });
@@ -98,7 +77,7 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
     return this;
   }
 
-  _abort(): this {
+  doAbort(): this {
     if (this.req && !this.hasAborted) {
       this.req.abort();
     }

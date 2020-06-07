@@ -1,7 +1,7 @@
 import Controller from '.';
 
 interface ResponseHandler {
-  (response: any, controller: any): Promise<any>;
+  (response: any, controller: any): any;
 }
 const checkStatusCode: ResponseHandler = (
   response: any,

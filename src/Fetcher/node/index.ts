@@ -1,16 +1,16 @@
-import { IncomingMessage } from 'http';
+import { IncomingMessage, ClientRequest } from 'http';
 import Fetcher from '..';
 import NodeBodyHandler from './body_handler';
 import NodeParam from '../../Param/node';
 import Header, { InputHeader } from '../../Param/Header';
+import { Readable, Writable, pipeline } from 'stream';
 
-export default class NodeFetcher extends Fetcher<string | Buffer> {
-  private req: any;
+export default class NodeFetcher extends Fetcher<string | Buffer | Readable> {
+  private req: ClientRequest | null = null;
   public param: NodeParam;
   constructor(param: NodeParam) {
     super(param);
     this.param = param;
-    this.req = null;
   }
 
   protected instanceBodyHandler() {
@@ -21,10 +21,36 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
     return new NodeFetcher(this.param);
   }
 
-  _send(body: string | Buffer | null, overWriteHeader: InputHeader = {}): this {
-    let len = 0;
-    const buf: Buffer[] = [];
-    this.req = this.param.client().request(
+  protected doSend(
+    body: string | Buffer | Readable | null,
+    overWriteHeader: InputHeader = {},
+  ): this {
+    return this.createAndSendRequest(
+      body,
+      overWriteHeader,
+      (res: IncomingMessage) => {
+        let len = 0;
+        const buf: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => {
+          this.doClearTimeout();
+          buf.push(chunk);
+          len += chunk.length;
+        });
+        res.on('end', () => {
+          if (this.moveNextStatus('SUCCESS')) {
+            this.resolve(Buffer.concat(buf, len));
+          }
+        });
+      },
+    );
+  }
+
+  private createAndSendRequest(
+    body: string | Buffer | Readable | null,
+    overWriteHeader: InputHeader = {},
+    cb: (res: IncomingMessage) => any,
+  ): this {
+    const req = this.param.client().request(
       this.param.getUrl(),
       {
         ...this.param.getOption(),
@@ -38,32 +64,52 @@ export default class NodeFetcher extends Fetcher<string | Buffer> {
       (res: IncomingMessage) => {
         this.setResHeader(new Header(<any>res.headers));
         this.statusCode = res.statusCode || 0;
-        res.on('data', (chunk: Buffer) => {
-          this._clearTimeout();
-          buf.push(chunk);
-          len += chunk.length;
-        });
-        res.on('end', () => {
-          this.responseLen = len;
-          if (this._next('SUCCESS')) {
-            this.resolve(Buffer.concat(buf, len));
+        cb(res);
+      },
+    );
+    this.req = req;
+    req.on('error', (catchedError: Error = new Error('网络错误')) => {
+      if (this.moveNextStatus('ERROR')) {
+        this.reject(catchedError);
+      }
+    });
+    if (body instanceof Readable) {
+      body.pipe(req);
+    } else {
+      if (body !== null) {
+        req.write(body);
+      }
+      req.end();
+    }
+    return this;
+  }
+
+  pipe(
+    body: string | Buffer | Readable | null | object,
+    dest: Writable,
+  ): Promise<void> {
+    const [formatedBody, overWriteHeader] = this.prepareSend(body);
+    this.createAndSendRequest(
+      formatedBody,
+      overWriteHeader,
+      (res: IncomingMessage) => {
+        pipeline(res, dest, error => {
+          if (error) {
+            if (this.moveNextStatus('ERROR')) {
+              this.reject(error);
+            }
+            return;
+          }
+          if (this.moveNextStatus('SUCCESS')) {
+            this.resolve();
           }
         });
       },
     );
-    this.req.on('error', (catchedError: Error = new Error('网络错误')) => {
-      if (this._next('ERROR')) {
-        this.reject(catchedError);
-      }
-    });
-    if (body !== null) {
-      this.req.write(body);
-    }
-    this.req.end();
-    return this;
+    return this.thread;
   }
 
-  _abort(): this {
+  protected doAbort(): this {
     if (this.req && !this.req.aborted) {
       this.req.abort();
     }
