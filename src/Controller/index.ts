@@ -1,8 +1,8 @@
-import { wait } from 'better-utils';
 import { FetcherInterface } from '../Fetcher';
 import Param from '../Param';
 import { InputHeader } from '../Param/Header';
 import { ResponseHandler } from './response_handlers';
+import wait from '../utils/wait';
 
 interface ErrorHook {
   (error: Error, header: InputHeader): void;

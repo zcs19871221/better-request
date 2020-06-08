@@ -292,9 +292,9 @@ test('preset parsers and custom parser', async () => {
       'redirect',
       'decode',
       'json',
-      (response, controller: string) => {
-        const type = controller;
-        // return `body:${response.name} header:${header['content-type']}`;
+      (response, controller) => {
+        const contentType = controller.fetcher.getResHeader('content-type');
+        return `body:${response.name} header:${contentType}`;
       },
     ],
   });
@@ -307,10 +307,15 @@ test('redirect exceed', async () => {
   const co = new Controller({
     url: `${domain}/presets`,
     method: 'GET',
-    parsers: [['redirect', 3], 'iconv', 'json'],
-    parser: (response, header) => {
-      return `body:${response.name} header:${header['content-type']}`;
-    },
+    responseHandlers: [
+      'redirect',
+      'decode',
+      'json',
+      (res, controller) => {
+        const contentType = controller.fetcher.getResHeader('content-type');
+        return `body:${res.name} header:${contentType}`;
+      },
+    ],
   });
   let catched = null;
   try {
@@ -330,13 +335,13 @@ test('option override', async () => {
       q: '#abcd',
     },
     method: 'GET',
-    parsers: ['iconv', 'json'],
+    responseHandlers: ['decode', 'json'],
   });
   const res = await co.fetch(null);
   const co0 = new Controller({
     url: `${domain}/notMatch?q=#abcd`,
     method: 'GET',
-    parsers: ['iconv', 'json'],
+    responseHandlers: ['decode', 'json'],
   });
   const res0 = await co0.fetch(null);
   const co2 = new Controller({
@@ -348,7 +353,7 @@ test('option override', async () => {
       a: '#abcde',
     },
     method: 'GET',
-    parsers: ['iconv', 'json'],
+    responseHandlers: ['decode', 'json'],
   });
   const res2 = await co2.fetch(null);
   // const co3 = new Controller({

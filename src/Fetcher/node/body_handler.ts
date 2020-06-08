@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import BodyHandler from '../body_handler';
-import { mockUuid } from 'better-utils';
+import mockUuid from '../../utils/mockUuid';
 import { InputHeader } from '../../Param/Header';
 
 export default class NodeBodyHandler extends BodyHandler<string | Buffer> {
