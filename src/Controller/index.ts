@@ -73,8 +73,15 @@ export default abstract class Controller<V> {
     while (this.errorRetryTimes <= this.errorRetry) {
       try {
         let response = await this.fetcher.send(body);
+        let stopChain = false;
+        const jumpOut = () => {
+          stopChain = true;
+        };
         for (const responseHandler of this.responseHandlers) {
-          response = await responseHandler(response, this);
+          response = await responseHandler(response, this, jumpOut);
+          if (stopChain) {
+            break;
+          }
         }
         return response;
       } catch (error) {

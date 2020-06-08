@@ -307,6 +307,7 @@ test('redirect exceed', async () => {
   const co = new Controller({
     url: `${domain}/presets`,
     method: 'GET',
+    maxRedirect: 3,
     responseHandlers: [
       'redirect',
       'decode',

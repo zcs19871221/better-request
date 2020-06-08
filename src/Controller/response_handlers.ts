@@ -1,7 +1,7 @@
 import Controller from '.';
 
 interface ResponseHandler {
-  (response: any, controller: Controller<any>): any;
+  (response: any, controller: Controller<any>, jumpOut: () => void): any;
 }
 const checkStatusCode: ResponseHandler = (
   response: any,
@@ -23,7 +23,8 @@ const parseJson: ResponseHandler = (
 ) => {
   const contentType = controller.fetcher.getResHeader('content-type');
   if (contentType.includes('application/json')) {
-    return JSON.parse(response);
+    return JSON.parse(String(response));
   }
+  return response;
 };
 export { ResponseHandler, checkStatusCode, parseJson };

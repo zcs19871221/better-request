@@ -2,11 +2,14 @@ import { ResponseHandler } from '../response_handlers';
 import NodeFetcher from '../../Fetcher/node';
 import NodeParam from '../../Param/node';
 import NodeController from '.';
+import Controller from '..';
 
 const redirect: ResponseHandler = (
   res: any,
-  controller: NodeController,
+  ctr: Controller<any>,
+  jumpOut: () => void,
 ): Promise<any> => {
+  const controller = <NodeController>ctr;
   if (
     controller.getMaxRedirect() > 0 &&
     controller.fetcher.is3xx() &&
@@ -21,6 +24,7 @@ const redirect: ResponseHandler = (
         }),
       );
       controller.setRediectTimes(controller.getRediectTimes() + 1);
+      jumpOut();
       return controller.ensureRequest(null);
     } else {
       throw new Error(`重定向超过${controller.getMaxRedirect()}次`);
