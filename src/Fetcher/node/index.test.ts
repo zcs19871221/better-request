@@ -1,10 +1,16 @@
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import Fetcher from './';
 import Param from '../../Param/node';
 
 let timers: any[] = [];
 let server: any = null;
+const sourceStreamFile = path.join(__dirname, 'readStream.txt');
+const destStreamFile = path.join(__dirname, 'writeStream.txt');
+let toClearFiles = [sourceStreamFile, destStreamFile];
 beforeAll(() => {
+  fs.writeFileSync(sourceStreamFile, 'read from file stream');
   server = http
     .createServer((req, res) => {
       if (req.url === '/success') {
@@ -43,6 +49,34 @@ afterAll(() => {
     clearTimeout(timer);
   });
   timers = [];
+  toClearFiles.forEach(fs.unlinkSync);
+});
+
+it('body stream and pipe', async () => {
+  const fetcher = new Fetcher(
+    new Param({
+      url: 'http://localhost:5678/success',
+      method: 'POST',
+    }),
+  );
+  await fetcher.sendThenPipe(
+    'pipe string body',
+    fs.createWriteStream(destStreamFile),
+  );
+  expect(fs.readFileSync(destStreamFile, 'utf-8')).toBe(
+    'success;method:POST;body:pipe string body',
+  );
+  await fetcher
+    .clone()
+    .sendThenPipe(
+      fs.createReadStream(sourceStreamFile),
+      fs.createWriteStream(destStreamFile),
+    );
+  expect(fs.readFileSync(destStreamFile, 'utf-8')).toBe(
+    'success;method:POST;body:read from file stream',
+  );
+  const res = await fetcher.clone().send(fs.createReadStream(sourceStreamFile));
+  expect(String(res)).toBe('success;method:POST;body:read from file stream');
 });
 
 it('same param same agent', async () => {

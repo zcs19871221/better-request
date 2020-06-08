@@ -84,7 +84,7 @@ export default class NodeFetcher extends Fetcher<string | Buffer | Readable> {
     return this;
   }
 
-  pipe(
+  sendThenPipe(
     body: string | Buffer | Readable | null | object,
     dest: Writable,
   ): Promise<void> {

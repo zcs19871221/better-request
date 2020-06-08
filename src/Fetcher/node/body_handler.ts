@@ -3,13 +3,15 @@ import path from 'path';
 import BodyHandler from '../body_handler';
 import mockUuid from '../../utils/mockUuid';
 import { InputHeader } from '../../Param/Header';
+import { Readable } from 'stream';
 
 export default class NodeBodyHandler extends BodyHandler<string | Buffer> {
   isNeedFormat(body: any) {
     return !(
       Buffer.isBuffer(body) ||
       typeof body === 'string' ||
-      body === null
+      body === null ||
+      body instanceof Readable
     );
   }
 
@@ -69,7 +71,12 @@ export default class NodeBodyHandler extends BodyHandler<string | Buffer> {
     '.mhtml': 'message/rfc822',
   };
 
-  protected addContentLength(body: string | Buffer | null): InputHeader {
+  protected addContentLength(
+    body: string | Buffer | null | Readable,
+  ): InputHeader {
+    if (body instanceof Readable) {
+      return {};
+    }
     const header: InputHeader = {};
     if (body !== null) {
       header['content-length'] = String(Buffer.byteLength(body));

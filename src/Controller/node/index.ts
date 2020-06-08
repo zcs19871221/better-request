@@ -76,8 +76,16 @@ export default class NodeController extends Controller<NodeBody> {
     return new NodeController(opt).fetch(<any>body);
   }
 
-  pipe(body: NodeBody | object, dest: Writable): Promise<any> {
-    return this.fetcher.pipe(body, dest);
+  static fetchThenPipe(
+    opt: NodeControllerOpt & NodeParamOpt,
+    body: NodeBody | object,
+    dest: Writable,
+  ): Promise<any> {
+    return new NodeController(opt).fetchThenPipe(<any>body, dest);
+  }
+
+  fetchThenPipe(body: NodeBody | object, dest: Writable): Promise<any> {
+    return this.fetcher.sendThenPipe(body, dest);
   }
 
   private standardResponseHandler(

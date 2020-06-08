@@ -1,2 +1,5 @@
 node_modules
 dist
+readStream.txt
+writeStream.txt
+/test

@@ -11,6 +11,7 @@ let server: any = null;
 const port = 5656;
 const domain = `http://localhost:${port}`;
 const tt: any = formidable;
+const writeStream = path.join(__dirname, 'writeStream.txt');
 beforeAll(() => {
   let visited = 0;
   let timer: any;
@@ -32,6 +33,11 @@ beforeAll(() => {
       if (req.url === '/success') {
         res.setHeader('x-tmp', 'tmp');
         res.end('success');
+        return;
+      }
+      if (req.url === '/fetchThenPipe') {
+        res.setHeader('x-tmp', 'tmp');
+        res.end('pipe to file');
         return;
       }
       if (req.url === '/error') {
@@ -124,6 +130,24 @@ afterAll(() => {
   timers = [];
 });
 
+test('fetch then pipe', async () => {
+  await Controller.fetchThenPipe(
+    {
+      url: `${domain}/success`,
+      method: 'GET',
+    },
+    null,
+    fs.createWriteStream(writeStream),
+  );
+  expect(fs.readFileSync(writeStream, 'utf-8')).toBe('success');
+
+  const co = new Controller({
+    url: `${domain}/fetchThenPipe`,
+    method: 'GET',
+  });
+  await co.fetchThenPipe(null, fs.createWriteStream(writeStream));
+  expect(fs.readFileSync(writeStream, 'utf-8')).toBe('pipe to file');
+});
 test('error retry', async () => {
   const co = new Controller({
     url: `${domain}/errorRetry`,
