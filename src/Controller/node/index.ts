@@ -88,6 +88,10 @@ export default class NodeController extends Controller<NodeBody> {
     return this.fetcher.sendThenPipe(body, dest);
   }
 
+  protected cloneFetcher() {
+    this.fetcher = new NodeFetcher(this.param);
+  }
+
   private standardResponseHandler(
     responseHandlers: Handler | Handler[],
   ): ResponseHandler[] {

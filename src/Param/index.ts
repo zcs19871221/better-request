@@ -63,6 +63,10 @@ export default abstract class Params implements ParamInterface {
     return this.header.gets(key);
   }
 
+  setHeader(key: string, value: string) {
+    this.header.set(key, value);
+  }
+
   getTimeout(): number {
     return this.timeout;
   }

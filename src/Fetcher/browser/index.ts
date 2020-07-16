@@ -26,9 +26,6 @@ export default class BrowserFetcher extends Fetcher<BrowserBody> {
   protected instanceBodyHandler() {
     return new BodyHandler(this);
   }
-  clone() {
-    return new BrowserFetcher(this.param);
-  }
 
   doSend(body: BrowserBody | null, overwriteHeader: InputHeader = {}): this {
     const xhr = new XMLHttpRequest();

@@ -27,7 +27,6 @@ interface FetcherInterface {
   getResHeader(key: string): string;
   getResHeader(key: string[]): string[];
   getResHeader(): InputHeader;
-  clone(): FetcherInterface;
 }
 
 export { FetcherInterface };
@@ -69,7 +68,6 @@ export default abstract class Fetcher<T> implements FetcherInterface {
     ],
   ];
 
-  abstract clone(): FetcherInterface;
   abort(): this {
     if (this.moveNextStatus('ABORTED')) {
       this.doAbort().resolve(null);

@@ -69,6 +69,10 @@ export default abstract class Controller<V> {
     }
   }
 
+  getResHeader() {
+    this.fetcher.param;
+  }
+
   async ensureRequest(body: V | object): Promise<any> {
     while (this.errorRetryTimes <= this.errorRetry) {
       try {
@@ -89,11 +93,13 @@ export default abstract class Controller<V> {
           throw error;
         }
         this.errorRetryTimes++;
-        this.fetcher = this.fetcher.clone();
+        this.cloneFetcher();
         await wait(this.errorRetryInterval);
       }
     }
   }
+
+  protected abstract cloneFetcher(): void;
 
   private onSuccessHandler(result: any) {
     if (this.onSuccess) {

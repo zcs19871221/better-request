@@ -17,10 +17,6 @@ export default class NodeFetcher extends Fetcher<string | Buffer | Readable> {
     return new NodeBodyHandler(this);
   }
 
-  clone() {
-    return new NodeFetcher(this.param);
-  }
-
   protected doSend(
     body: string | Buffer | Readable | null,
     overWriteHeader: InputHeader = {},

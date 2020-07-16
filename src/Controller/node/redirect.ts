@@ -16,13 +16,13 @@ const redirect: ResponseHandler = (
     controller.fetcher.getResHeader('location')
   ) {
     if (controller.getRediectTimes() < controller.getMaxRedirect()) {
-      controller.fetcher = new NodeFetcher(
-        new NodeParam({
-          url: controller.fetcher.getResHeader('location'),
-          method: 'GET',
-          timeout: 5 * 1000,
-        }),
-      );
+      const param = new NodeParam({
+        url: controller.fetcher.getResHeader('location'),
+        method: 'GET',
+        timeout: 5 * 1000,
+      });
+      controller.fetcher = new NodeFetcher(param);
+      controller.param = param;
       controller.setRediectTimes(controller.getRediectTimes() + 1);
       jumpOut();
       return controller.ensureRequest(null);

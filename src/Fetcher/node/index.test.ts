@@ -66,16 +66,24 @@ it('body stream and pipe', async () => {
   expect(fs.readFileSync(destStreamFile, 'utf-8')).toBe(
     'success;method:POST;body:pipe string body',
   );
-  await fetcher
-    .clone()
-    .sendThenPipe(
-      fs.createReadStream(sourceStreamFile),
-      fs.createWriteStream(destStreamFile),
-    );
+  await new Fetcher(
+    new Param({
+      url: 'http://localhost:5678/success',
+      method: 'POST',
+    }),
+  ).sendThenPipe(
+    fs.createReadStream(sourceStreamFile),
+    fs.createWriteStream(destStreamFile),
+  );
   expect(fs.readFileSync(destStreamFile, 'utf-8')).toBe(
     'success;method:POST;body:read from file stream',
   );
-  const res = await fetcher.clone().send(fs.createReadStream(sourceStreamFile));
+  const res = await new Fetcher(
+    new Param({
+      url: 'http://localhost:5678/success',
+      method: 'POST',
+    }),
+  ).send(fs.createReadStream(sourceStreamFile));
   expect(String(res)).toBe('success;method:POST;body:read from file stream');
 });
 

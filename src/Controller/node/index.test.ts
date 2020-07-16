@@ -119,6 +119,10 @@ beforeAll(() => {
         res.end('overRideOption:' + req.url);
         return;
       }
+      if (req.url && req.url.startsWith('/responseCookie')) {
+        res.end(req.headers.cookie);
+        return;
+      }
     })
     .listen(port);
 });
@@ -177,6 +181,29 @@ test('parse error retry', async () => {
   });
   const res = await co.fetch(null);
   expect(res).toBe('parser return success at 2');
+});
+test('error then change cookie', async () => {
+  let serverStr = '';
+  const co = new Controller({
+    url: `${domain}/responseCookie`,
+    header: { cookie: 'cookie1' },
+    responseHandlers: (response, cr) => {
+      response = String(response);
+      serverStr += response;
+      if (response.includes('cookie1')) {
+        serverStr += ' ';
+        cr.param.setHeader('cookie', 'cookie2');
+        throw new Error('change cookie');
+      }
+      return serverStr;
+    },
+    method: 'GET',
+    errorRetry: 2,
+    timeout: 100,
+    errorRetryInterval: 0,
+  });
+  const res = await co.fetch(null);
+  expect(res).toBe('cookie1 cookie2');
 });
 
 test('success & finish hooks', async () => {
