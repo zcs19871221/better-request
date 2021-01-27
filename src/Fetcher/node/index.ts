@@ -28,7 +28,6 @@ export default class NodeFetcher extends Fetcher<string | Buffer | Readable> {
         let len = 0;
         const buf: Buffer[] = [];
         res.on('data', (chunk: Buffer) => {
-          this.doClearTimeout();
           buf.push(chunk);
           len += chunk.length;
         });
