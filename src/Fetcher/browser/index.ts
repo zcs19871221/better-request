@@ -3,7 +3,7 @@ import BrowserParam from '../../Param/browser';
 import Header, { InputHeader } from '../../Param/Header';
 import BodyHandler from './body_handler';
 
-type BrowserBody =
+export type BrowserBody =
   | string
   | Document
   | Blob

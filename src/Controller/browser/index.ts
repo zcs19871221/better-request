@@ -1,5 +1,4 @@
-import redirect from './redirect';
-import NodeFetcher from '../../Fetcher/browser';
+import BrowserFetcher, { BrowserBody } from '../../Fetcher/browser';
 import Controller, { ControllerOpt } from '../';
 import { ParamOpt } from '../../Param';
 import BrowserParam from '../../Param/browser';
@@ -8,39 +7,34 @@ import {
   checkStatusCode,
   parseJson,
 } from '../response_handlers';
-import { Readable } from 'stream';
 
-type NodeBody = string | Buffer | null | Readable;
+type BBody = BrowserBody | null;
 type Handler = keyof typeof ResponseHandlerName | ResponseHandler;
 type Partial<T> = {
   [P in keyof T]?: T[P];
 };
 
-declare interface NodeControllerOpt extends Partial<ControllerOpt> {
-  readonly maxRedirect?: number;
+declare interface BrowserControllerOpt extends Partial<ControllerOpt> {
   responseHandlers?: Handler | Handler[];
 }
 
 enum ResponseHandlerName {
   'status',
-  'redirect',
   'json',
 }
-export default class NodeController extends Controller<NodeBody> {
+export default class BrowserController extends Controller<BBody> {
   private rediectTimes: number = 0;
-  private readonly maxRedirect: number;
-  public fetcher: NodeFetcher;
+  public fetcher: BrowserFetcher;
   constructor({
-    maxRedirect = 5,
     errorRetry = 0,
     errorRetryInterval = 50,
-    responseHandlers = ['status', 'redirect', 'json'],
+    responseHandlers = ['status', 'json'],
     onSuccess,
     onError,
     statusFilter = /^[23]\d\d$/,
     onFinish,
     ...rest
-  }: NodeControllerOpt & ParamOpt) {
+  }: BrowserControllerOpt & ParamOpt) {
     super({
       errorRetry,
       errorRetryInterval,
@@ -50,13 +44,8 @@ export default class NodeController extends Controller<NodeBody> {
       statusFilter,
     });
     this.param = new BrowserParam(rest);
-    this.fetcher = new NodeFetcher(this.param);
-    this.maxRedirect = maxRedirect;
+    this.fetcher = new BrowserFetcher(this.param);
     this.responseHandlers = this.standardResponseHandler(responseHandlers);
-  }
-
-  getMaxRedirect() {
-    return this.maxRedirect;
   }
 
   getRediectTimes() {
@@ -68,14 +57,14 @@ export default class NodeController extends Controller<NodeBody> {
   }
 
   static fetch(
-    opt: NodeControllerOpt & ParamOpt,
-    body: NodeBody | object,
+    opt: BrowserControllerOpt & ParamOpt,
+    body: BBody | object,
   ): Promise<any> {
-    return new NodeController(opt).fetch(<any>body);
+    return new BrowserController(opt).fetch(<any>body);
   }
 
   protected cloneFetcher() {
-    this.fetcher = new NodeFetcher(this.param);
+    this.fetcher = new BrowserFetcher(this.param);
   }
 
   private standardResponseHandler(
@@ -88,8 +77,6 @@ export default class NodeController extends Controller<NodeBody> {
       switch (handler) {
         case 'status':
           return checkStatusCode;
-        case 'redirect':
-          return redirect;
         case 'json':
           return parseJson;
         default:
