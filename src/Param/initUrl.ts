@@ -11,6 +11,9 @@ export default function(
   search: InputSearch = '',
 ): URL {
   if (typeof url === 'string') {
+    if (url.startsWith('/') && window && window.location) {
+      url = `${window.location.origin}${url}`;
+    }
     url = new URL(url);
   } else {
     url = new URL(url.toString());
