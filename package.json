@@ -27,7 +27,7 @@
     "@types/node": "^13.13.10",
     "iconv-lite": "^0.5.1"
   },
-  "browser": "Controller/node/index.js",
+  "browser": "Controller/browser/index.js",
   "main": "Controller/node/index.js",
   "types": "Controller/node/index.d.ts",
   "devDependencies": {
